@@ -1,0 +1,6 @@
+bin/
+data/chunks/
+*.obj
+*.pdb
+*.ilk
+*.raddbg
