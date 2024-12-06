@@ -496,6 +496,7 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
     r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[0], NULL, 0xffffffff);
     r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Point]);
 
+
     for (R_Batch_Node *batch_node = draw_bucket->batches.first; batch_node; batch_node = batch_node->next) {
         R_Batch batch = batch_node->batch;
         R_Params params = batch.params;

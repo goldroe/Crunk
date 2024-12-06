@@ -43,6 +43,11 @@ struct R_2D_Vertex {
     v3 padding_;
 };
 
+// struct R_3D_Box {
+//     v3 corners[8];
+//     v2 tex_coords[];
+// };
+
 struct R_2D_Rect {
     Rect dst;
     Rect src;

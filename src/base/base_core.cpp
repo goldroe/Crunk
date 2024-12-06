@@ -1,6 +1,23 @@
+
+global Profile_Manager g_profile_manager;
+
+internal void profile_scope_begin(char *name) {
+    Profile_Scope *scope = &g_profile_manager.scopes[g_profile_manager.scope_count];
+    scope->name = name;
+    scope->start_clock = get_wall_clock();
+}
+
+internal void profile_scope_end() {
+    Profile_Scope *scope = &g_profile_manager.scopes[g_profile_manager.scope_count];
+    scope->ms_elapsed += get_ms_elapsed(scope->start_clock, get_wall_clock());
+    g_profile_manager.scope_count++;
+}
+
 internal v2_s32 v2s32(s32 x, s32 y) {v2_s32 result; result.x = x; result.y = y; return result;}
 internal v2 v2_v2s32(v2_s32 v) {v2 result; result.x = (f32)v.x; result.y = (f32)v.y; return result;}
 internal v2_s32 v2s32_v2(v2 v) {v2_s32 result; result.x = (s32)v.x; result.y = (s32)v.y; return result;}
+
+internal v3_s32 v3s32(s32 x, s32 y, s32 z) {v3_s32 result; result.x = x; result.y = y; result.z = z; return result;}
 
 internal Rng_U64 rng_u64(u64 min, u64 max) { if (min > max) Swap(u64, min, max); Rng_U64 result; result.min = min; result.max = max; return result; }
 internal u64 rng_u64_len(Rng_U64 rng) { u64 result = rng.max - rng.min; return result; }

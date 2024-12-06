@@ -6,6 +6,8 @@ global Chunk_Manager *chunk_manager;
 global Texture_Atlas *g_block_atlas;
 global Block g_basic_blocks[BLOCK_COUNT];
 
+global R_Handle icon_tex;
+
 internal u64 djb2_hash_string(String8 string) {
     u64 result = 5381;
     for (u64 i = 0; i < string.count; i++) {
@@ -74,6 +76,13 @@ internal s32 get_height_from_chunk_xz(Chunk *chunk, s32 x, s32 z) {
     return result;
 }
 
+internal R_Handle load_texture(String8 file_name) {
+    int x, y, n;
+    u8 *data = stbi_load((char *)file_name.data, &x, &y, &n, 4);
+    R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, v2s32(x, y), data);
+    return tex;
+}
+
 internal Texture_Map load_texture_map(String8 file_name) {
     int x, y, n;
     u8 *data = stbi_load((char *)file_name.data, &x, &y, &n, 1);
@@ -95,15 +104,15 @@ internal f32 get_height_map_value(Texture_Map *map, s32 x, s32 y) {
 }
 
 internal void draw_block(Block *block, v3 position, u8 face_mask) {
-    f32 S = 0.5f;
-    v3 p0 = make_v3(position.x - S, position.y - S, position.z + S);
-    v3 p1 = make_v3(position.x + S, position.y - S, position.z + S);
+    f32 S = 1.0f;
+    v3 p0 = make_v3(position.x,     position.y, position.z + S);
+    v3 p1 = make_v3(position.x + S, position.y, position.z + S);
     v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
-    v3 p3 = make_v3(position.x - S, position.y + S, position.z + S);
-    v3 p4 = make_v3(position.x - S, position.y - S, position.z - S);
-    v3 p5 = make_v3(position.x + S, position.y - S, position.z - S);
-    v3 p6 = make_v3(position.x + S, position.y + S, position.z - S);
-    v3 p7 = make_v3(position.x - S, position.y + S, position.z - S);
+    v3 p3 = make_v3(position.x, position.y + S, position.z + S);
+    v3 p4 = make_v3(position.x, position.y, position.z);
+    v3 p5 = make_v3(position.x + S, position.y, position.z);
+    v3 p6 = make_v3(position.x + S, position.y + S, position.z);
+    v3 p7 = make_v3(position.x, position.y + S, position.z);
 
     Texture_Atlas *atlas = g_block_atlas;
 
@@ -157,9 +166,7 @@ internal void draw_block(Block *block, v3 position, u8 face_mask) {
     }
 }
 
-#define FACE_TEX_SIZE 1.0f
 internal void draw_chunk(Chunk *chunk) {
-    v4 color = make_v4(1.f, 1.f, 1.f, 1.f);
     for (int z = 0; z < CHUNK_SIZE; z++) {
         for (int y = 0; y < CHUNK_SIZE; y++) {
             for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -168,19 +175,19 @@ internal void draw_chunk(Chunk *chunk) {
                 position.x += x;
                 position.y += y;
                 position.z += z;
-                if (block_active(block)) {
-                    Block *block_type = &g_basic_blocks[*block];
 
-                    //@Note Test for neighboring blocks
+                if (block_active(block)) {
+                    Block *basic_block = &g_basic_blocks[*block];
                     u8 face_mask = 0;
-                    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_active(BLOCK_AT(chunk, x, y, z + 1));
-                    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_active(BLOCK_AT(chunk, x, y, z - 1));
-                    if (x > 0)              face_mask |= FACE_MASK_WEST*block_active(BLOCK_AT(chunk, x - 1, y, z));
-                    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_active(BLOCK_AT(chunk, x + 1, y, z));
+
                     if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_active(BLOCK_AT(chunk, x, y + 1, z));
                     if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_active(BLOCK_AT(chunk, x, y - 1, z));
+                    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_active(BLOCK_AT(chunk, x, y, z + 1));
+                    if (z > 0) face_mask |= FACE_MASK_SOUTH*block_active(BLOCK_AT(chunk, x, y, z - 1));
+                    if (x > 0) face_mask |= FACE_MASK_WEST*block_active(BLOCK_AT(chunk, x - 1, y, z));
+                    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_active(BLOCK_AT(chunk, x + 1, y, z));
 
-                    draw_block(block_type, position, face_mask);
+                    draw_block(basic_block, position, face_mask);
                 }
             }
         }
@@ -199,8 +206,6 @@ internal Chunk *chunk_new(Chunk_Manager *manager) {
     manager->loaded_chunks.count += 1;
     return result;
 }
-
-internal void generate_sphere(Chunk *chunk);
 
 internal Chunk *load_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
     v3_s32 position = {x, y, z};
@@ -231,20 +236,6 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
         Chunk *chunk = chunk_new(manager);
         chunk->position = position;
         generate_chunk(manager, world_generator, chunk);
-        // generate_sphere(chunk);
-    }
-}
-
-internal void generate_sphere(Chunk *chunk) {
-    for (int z = 0; z < CHUNK_SIZE; z++) {
-        for (int y = 0; y < CHUNK_SIZE; y++) {
-           for (int x = 0; x < CHUNK_SIZE; x++) {
-               if (sqrt((float)(x - CHUNK_SIZE / 2) * (x - CHUNK_SIZE / 2) + (y - CHUNK_SIZE / 2) * (y - CHUNK_SIZE / 2) + (z - CHUNK_SIZE / 2) * (z - CHUNK_SIZE / 2)) <= CHUNK_SIZE / 2) {
-                   Block_ID *block = BLOCK_AT(chunk, x, y, z);
-                   *block = BLOCK_STONE;
-               }
-           }
-        }
     }
 }
 
@@ -317,27 +308,6 @@ internal void serialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
 
     os_close_handle(file);
 }
-
-// internal void initialize_landscape(Chunk_Manager *manager) {
-//     Chunk *chunk = chunk_new(manager);
-
-//     deserialize_chunk(manager, chunk);
-
-    // for (int z = 0; z < CHUNK_SIZE; z++) {
-    //     for (int x = 0; x < CHUNK_SIZE; x++) {
-    //         f64 height = (CHUNK_SIZE - 1) * get_height_map_value(&height_map, x, z);
-    //         for (int y = 0; y < height; y++) {
-    //             Block_ID *block = BLOCK_AT(chunk, x, y, z);
-    //             if (y < 34) *block = BLOCK_STONE;
-    //             else if (y < 60) *block = BLOCK_DIRT;
-    //             else *block = BLOCK_GRASS;
-
-    //             if (height - y <= 2) *block = BLOCK_GRASS;
-    //         }
-    //     }
-    // }
-    // serialize_chunk(manager, chunk);
-// }
 
 internal Texture_Region *find_texture_region(Texture_Atlas *atlas, String8 name) {
     Texture_Region *result = NULL;
@@ -490,6 +460,15 @@ internal void load_blocks() {
         block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_NORTH];
         block->step_type = STEP_GRASS;
     }
+
+    {
+        Block *block = &blocks[BLOCK_LOG];
+        set_block_face(block->faces + FACE_TOP, str8_lit("oak_log_top.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        set_block_face(block->faces + FACE_NORTH, str8_lit("oak_log.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_NORTH];
+        block->faces[FACE_BOTTOM] = block->faces[FACE_TOP];
+    }
+
 }
 
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
@@ -497,12 +476,16 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     if (first_call) {
         first_call = false;
 
+        v2 dim = os_get_window_dim(window_handle);
+
         Arena *font_arena = arena_alloc(get_virtual_allocator(), MB(4));
         default_fonts[FONT_DEFAULT] = load_font(font_arena, str8_lit("data/assets/fonts/consolas.ttf"), 16);
 
         ui_set_state(ui_state_new());
 
         load_blocks();
+
+        icon_tex = load_texture(str8_lit("data/assets/icons.png"));
 
         //@Note World Generator
         {
@@ -541,7 +524,10 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         //@Note Toward -Z axis
         game_state->camera.yaw = -90.0f;
         game_state->camera.pitch =  0.0f;
-        game_state->camera.fov = 60.f;
+        game_state->camera.fov = 70.f;
+        game_state->camera.aspect = 1024.0f/ 768.0f;
+
+        game_state->frustum = make_frustum(game_state->camera, 0.001f, 1000.0f);
     }
 
     input_begin(window_handle, event_list);
@@ -591,7 +577,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     if (key_pressed(OS_KEY_RIGHTMOUSE)) {
         if (game_state->raycast_hit) {
             Block_ID *block = get_block_from_position(chunk_manager, game_state->raycast_p + make_v3(0.f, 1.f, 0.f));
-            *block = BLOCK_STONE;
+            *block = BLOCK_LOG;
         }
     }
 
@@ -620,6 +606,11 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         Player *player = game_state->player;
         player->velocity = v3_zero();
         f32 speed = 10.0f;
+
+        if (key_down(OS_KEY_SPACE)) {
+            speed = 500.0f; 
+        }
+
         v3 distance = game_state->camera.forward * forward_dt + game_state->camera.right * right_dt;
         v3 direction = normalize_v3(distance);
         player->position += speed * direction * dt;
@@ -723,7 +714,11 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         player->position = new_position;
     }
 
-    game_state->camera.position = game_state->player->position + make_v3(0.f, 1.0f, 0.f); 
+    game_state->camera.position = game_state->player->position + 0.5f * game_state->camera.forward + make_v3(0.5f, 0.5f, 0.5f);
+    game_state->camera.position.y += 1.f;
+
+    //@Note Update Frustum
+    game_state->frustum = make_frustum(game_state->camera, 0.001f, 1000.0f);
 
     {
         game_state->raycast_hit = false;
@@ -743,19 +738,26 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         }
     }
 
-    game_state->camera.view_matrix = look_at_rh(game_state->camera.position, game_state->camera.position + game_state->camera.forward, game_state->camera.up);
+    m4 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
+    m4 projection  = perspective_projection_rh(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.001f, 1000.0f);
+    m4 view = look_at_rh(game_state->camera.position, game_state->camera.position + game_state->camera.forward, game_state->camera.up);
 
     draw_begin(window_handle);
 
-    m4 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
-    m4 projection  = perspective_projection_rh(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.1f, 1000.0f);
-    m4 view        = game_state->camera.view_matrix;
-
-    draw_3d_mesh_begin(projection, view, g_block_atlas->tex_handle, R_RasterizerState_Default);
-
-    for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-        draw_chunk(chunk);
+    ProfileScope("chunk drawing")
+    {
+        v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+        draw_3d_mesh_begin(projection, view, g_block_atlas->tex_handle, R_RasterizerState_Default);
+        for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
+            v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
+            AABB chunk_box = make_aabb(position, chunk_size);
+            if (aabb_in_frustum(game_state->frustum, chunk_box)) {
+                draw_chunk(chunk);
+            }
+        }
     }
+    int mesh_vertices_this_frame = 0;
+    mesh_vertices_this_frame = draw_bucket->batches.last->batch.bytes / sizeof(R_3D_Vertex);
 
     //@Note draw raycast block
     draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
@@ -764,31 +766,38 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 
     draw_set_xform(ortho_projection);
-    draw_rect(make_rect(0.5f*dim.x - 5.f, 0.5f*dim.y - 5.f, 10.f, 10.f), make_v4(1.f, 1.f, 0.f, 1.f));
+    draw_quad(icon_tex, make_rect(0.5f*dim.x - 16.f, 0.5f*dim.y - 16.f, 32.f, 32.f), make_rect(0.0f, 0.0f, 64.0f/1024.0f, 64.0f/1024.0f));
 
     //@Note Hot bar
-    v2 hotbar_dim = make_v2(450.0f, 50.0f);
-    Rect hotbar_rect = make_rect((dim.x - hotbar_dim.x) * 0.5f, 0.f, hotbar_dim.x, hotbar_dim.y);
-    Rect src = make_rect(0.f, 5.f/16.f, 1.f/16.f, 1.f/16.f);
-    draw_rect(hotbar_rect, make_v4(0.f, 0.f, 0.f, 1.f));
-    v2 slot_dim = make_v2(hotbar_dim.x / (f32)HOTBAR_SLOTS, hotbar_dim.y);
-    for (int i = 0; i < HOTBAR_SLOTS; i++) {
-        Texture_Atlas *atlas = g_block_atlas;
-        Block *block = &g_basic_blocks[BLOCK_DIRT];
-        Block_Face *face = &block->faces[FACE_TOP];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        Rect rect = make_rect(hotbar_rect.x0 + slot_dim.x * i, hotbar_rect.y0, slot_dim.x, slot_dim.y);
-        draw_quad(g_block_atlas->tex_handle, rect, src);
-        draw_rect_outline(rect, make_v4(1.f, 1.f, 1.f, 1.f));
-    }
-    draw_rect_outline(hotbar_rect, make_v4(1.f, 1.f, 1.f, 1.f));
+    // v2 hotbar_dim = make_v2(450.0f, 50.0f);
+    // Rect hotbar_rect = make_rect((dim.x - hotbar_dim.x) * 0.5f, 0.f, hotbar_dim.x, hotbar_dim.y);
+    // Rect src = make_rect(0.f, 5.f/16.f, 1.f/16.f, 1.f/16.f);
+    // draw_rect(hotbar_rect, make_v4(0.f, 0.f, 0.f, 1.f));
+    // v2 slot_dim = make_v2(hotbar_dim.x / (f32)HOTBAR_SLOTS, hotbar_dim.y);
+    // for (int i = 0; i < HOTBAR_SLOTS; i++) {
+    //     Texture_Atlas *atlas = g_block_atlas;
+    //     Block *block = &g_basic_blocks[BLOCK_DIRT];
+    //     Block_Face *face = &block->faces[FACE_TOP];
+    //     Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
+    //     Rect rect = make_rect(hotbar_rect.x0 + slot_dim.x * i, hotbar_rect.y0, slot_dim.x, slot_dim.y);
+    //     draw_quad(g_block_atlas->tex_handle, rect, src);
+    //     draw_rect_outline(rect, make_v4(1.f, 1.f, 1.f, 1.f));
+    // }
+    // draw_rect_outline(hotbar_rect, make_v4(1.f, 1.f, 1.f, 1.f));
 
     //@DEBUG
     ui_labelf("delta: %fms", 1000.0 * dt);
-    // ui_labelf("chunk position: %d, %d, %d", chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
-    ui_labelf("world position: %.2f, %.2f, %.2f", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z);
-    ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
-    ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);
+    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+    ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
+    ui_labelf("vertices %d", mesh_vertices_this_frame);
+    // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
+    // ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);
+
+    ui_label(str8_lit("Profiler:"));
+    for (int i = 0; i < g_profile_manager.scope_count; i++) {
+        Profile_Scope *scope = &g_profile_manager.scopes[i];
+        ui_labelf("- %s: %.3fms", scope->name, scope->ms_elapsed);
+    }
 
     ui_layout_apply(ui_root());
 

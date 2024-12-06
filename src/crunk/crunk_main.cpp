@@ -25,6 +25,8 @@
 #include "draw/draw.h"
 #include "input.h"
 #include "world_gen.h"
+#include "aabb.h"
+#include "frustum.h"
 #include "crunk.h"
 
 #define STB_SPRINTF_IMPLEMENTATION
@@ -45,6 +47,7 @@
 #include "ui/ui_widgets.cpp"
 #include "input.cpp"
 #include "world_gen.cpp"
+#include "frustum.cpp"
 #include "crunk.cpp"
 
 bool window_should_close;
@@ -124,6 +127,10 @@ int main() {
         win32_events.count = 0;
         arena_clear(win32_event_arena);
 
+        //@Note Reset profile manager
+        MemoryZero(g_profile_manager.scopes, sizeof(g_profile_manager.scopes));
+        g_profile_manager.scope_count = 0;
+
         s64 work_clock = get_wall_clock();
         f32 work_ms_elapsed = get_ms_elapsed(last_clock, work_clock);
         if ((int)work_ms_elapsed < target_ms_per_frame) {
@@ -133,10 +140,6 @@ int main() {
 
         s64 end_clock = get_wall_clock();
         dt = get_ms_elapsed(last_clock, end_clock);
-
-        #if 0
-        printf("DT: %f\n", dt);
-        #endif
         last_clock = end_clock;
     }
 

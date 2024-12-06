@@ -1,6 +1,5 @@
 #ifndef CRUNK_H
 #define CRUNK_H
-
 struct Texture_Atlas;
 
 struct Texture_Region {
@@ -49,7 +48,7 @@ struct Camera {
     f32 yaw;
     f32 pitch;
     f32 fov;
-    m4 view_matrix;
+    f32 aspect;
 };
 
 enum Block_ID : u16 {
@@ -64,16 +63,6 @@ enum Block_ID : u16 {
     BLOCK_COBBLESTONE,
     BLOCK_LOG,
     BLOCK_COUNT
-};
-
-enum Face {
-    FACE_TOP,
-    FACE_BOTTOM,
-    FACE_NORTH,
-    FACE_SOUTH,
-    FACE_EAST,
-    FACE_WEST,
-    FACE_COUNT
 };
 
 enum Sound_Type {
@@ -202,6 +191,8 @@ struct Game_State {
     b32 creative_mode;
     Crafting_State *crafting_state;
     Player *player;
+
+    Frustum frustum;
 };
 
 #endif // CRUNK_H

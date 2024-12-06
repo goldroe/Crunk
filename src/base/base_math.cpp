@@ -325,6 +325,21 @@ inline internal v4 lerp_v4(v4 a, v4 b, f32 t) {
     return result;
 }
 
+inline internal v2_s32 add_v2_s32(v2_s32 a, v2_s32 b) {
+    v2_s32 result;
+    result.x = a.x + b.x;
+    result.y = a.y + b.y;
+    return result;
+}
+
+inline internal v3_s32 add_v3_s32(v3_s32 a, v3_s32 b) {
+    v3_s32 result;
+    result.x = a.x + b.x;
+    result.y = a.y + b.y;
+    result.z = a.z + b.z;
+    return result;
+}
+
 inline internal v2 add_v2(v2 a, v2 b) {
     v2 result;
     result.x = a.x + b.x;

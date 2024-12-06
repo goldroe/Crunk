@@ -89,6 +89,7 @@ void AssertMessage(const char *message, const char *file, int line) {
 #define Swap(T,a,b) do{T __t = a; a = b; b = __t;}while(0)
 #define quick_sort(Arr,T,N,Func) qsort((Arr), (N), sizeof(T), (Func))
 
+
 #include <stdint.h>
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -210,5 +211,28 @@ union Rect {
     };
 };
 
-#endif // BASE_CORE_H
+enum Face {
+    FACE_TOP,
+    FACE_BOTTOM,
+    FACE_NORTH,
+    FACE_SOUTH,
+    FACE_EAST,
+    FACE_WEST,
+    FACE_COUNT
+};
 
+#define MAX_PROFILES 32
+struct Profile_Scope {
+    char *name;
+    s64 start_clock;
+    f32 ms_elapsed;
+};
+
+struct Profile_Manager {
+    Profile_Scope scopes[MAX_PROFILES];
+    int scope_count;
+};
+#define ProfileScope(Name) DeferLoop(profile_scope_begin(Name), profile_scope_end())
+
+
+#endif // BASE_CORE_H

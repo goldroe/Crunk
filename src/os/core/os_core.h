@@ -191,4 +191,7 @@ internal OS_Handle os_find_first_file(Arena *arena, String8 path, OS_File *file)
 internal bool os_find_next_file(Arena *arena, OS_Handle find_file_handle, OS_File *file);
 internal void os_find_close(OS_Handle find_file_handle);
 
+internal inline s64 get_wall_clock();
+internal inline f32 get_ms_elapsed(s64 start, s64 end);
+
 #endif // OS_CORE_H

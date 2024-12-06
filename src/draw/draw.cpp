@@ -6,7 +6,7 @@ global Draw_Bucket *draw_bucket;
 
 internal void draw_begin(OS_Handle window_handle) {
     if (draw_arena == NULL) {
-        draw_arena = arena_alloc(get_virtual_allocator(), GB(1));
+        draw_arena = arena_alloc(get_virtual_allocator(), MB(128));
     }
 
     if (draw_temp_arena == NULL) {
@@ -414,6 +414,7 @@ inline internal void draw_3d_vertex(v3 pos, v4 color, v2 tex) {
 }
 
 internal void draw_cube(v3 position, Rect src, v4 color, u8 face_mask) {
+#if 0
     f32 S = 0.5f;
     v3 p0 = make_v3(position.x - S, position.y - S, position.z + S);
     v3 p1 = make_v3(position.x + S, position.y - S, position.z + S);
@@ -423,6 +424,17 @@ internal void draw_cube(v3 position, Rect src, v4 color, u8 face_mask) {
     v3 p5 = make_v3(position.x + S, position.y - S, position.z - S);
     v3 p6 = make_v3(position.x + S, position.y + S, position.z - S);
     v3 p7 = make_v3(position.x - S, position.y + S, position.z - S);
+#else
+    f32 S = 1.0f;
+    v3 p0 = make_v3(position.x,     position.y, position.z + S);
+    v3 p1 = make_v3(position.x + S, position.y, position.z + S);
+    v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
+    v3 p3 = make_v3(position.x, position.y + S, position.z + S);
+    v3 p4 = make_v3(position.x, position.y, position.z);
+    v3 p5 = make_v3(position.x + S, position.y, position.z);
+    v3 p6 = make_v3(position.x + S, position.y + S, position.z);
+    v3 p7 = make_v3(position.x, position.y + S, position.z);
+#endif
 
     v2 tl = make_v2(src.x0, src.y0);
     v2 br = make_v2(src.x1, src.y1);
@@ -466,3 +478,11 @@ internal void draw_cube(v3 position, Rect src, v4 color, u8 face_mask) {
         draw_3d_vertex(p7, color, tl);
     }
 }
+
+// internal void draw_plane_3d(Plane_3D plane, v4 color) {
+//     v2 src = v2_zero();
+//     // draw_3d_vertex(plane.v[0], color, src);
+//     // draw_3d_vertex(plane.v[1], color, src);
+//     // draw_3d_vertex(plane.v[2], color, src);
+//     // draw_3d_vertex(plane.v[3], color, src);
+// }
