@@ -1,7 +1,10 @@
 bin/
 data/chunks/
+
 *.exe
 *.obj
 *.pdb
 *.ilk
+*.rdi
+
 *.raddbg

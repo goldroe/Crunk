@@ -53,7 +53,6 @@
 #include "ui/ui_widgets.cpp"
 #include "input.cpp"
 #include "world_gen.cpp"
-#include "aabb.cpp"
 #include "atlas.cpp"
 #include "frustum.cpp"
 #include "block.cpp"
@@ -67,7 +66,7 @@ int main() {
 
     win32_event_arena = make_arena(get_malloc_allocator());
 
-    char *class_name = "Voxel_WINDOW_CLASS";
+    char *class_name = "Crunk_WINDOW_CLASS";
     HINSTANCE hinstance = GetModuleHandle(NULL);
     WNDCLASSA window_class{};
     window_class.style = CS_HREDRAW | CS_VREDRAW;
@@ -80,7 +79,7 @@ int main() {
         printf("RegisterClassA failed, err:%d\n", GetLastError());
     }
 
-    HWND hWnd = CreateWindowA(class_name, "Voxel", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinstance, NULL);
+    HWND hWnd = CreateWindowA(class_name, "Crunk", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinstance, NULL);
 
     ShowCursor(FALSE);
 
