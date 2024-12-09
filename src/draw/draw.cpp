@@ -394,6 +394,23 @@ internal void draw_rect_outline(Rect rect, v4 color) {
     draw_rect(make_rect(rect.x0, rect.y1 - 1, rect_width(rect), 1), color);
 }
 
+internal void draw_chunks(Chunk_List chunks, v3 position, Frustum frustum, m4 projection, m4 view, Texture_Atlas *atlas, R_Rasterizer_Kind rasterizer) {
+    R_Batch_Node *node = draw_bucket->batches.last;
+    node = push_array(draw_arena, R_Batch_Node, 1);
+    draw_push_batch_node(&draw_bucket->batches, node);
+
+    node->batch.params.kind = R_ParamsKind_Blocks;
+    R_Params_Blocks *params_blocks = push_array(draw_arena, R_Params_Blocks, 1);
+    node->batch.params.params_blocks = params_blocks;
+    params_blocks->projection = projection;
+    params_blocks->view = view;
+    params_blocks->atlas = atlas;
+    params_blocks->rasterizer = rasterizer;
+    params_blocks->chunks = chunks;
+    params_blocks->frustum = frustum;
+    params_blocks->position = position;
+}
+
 internal void draw_3d_mesh_begin(m4 projection, m4 view, R_Handle tex, R_Rasterizer_Kind rasterizer) {
     R_Batch_Node *node = push_array(draw_arena, R_Batch_Node, 1);
     draw_push_batch_node(&draw_bucket->batches, node);
