@@ -159,6 +159,19 @@ union v3_s32 {
     }
 };
 
+union v4_s32 {
+    struct {
+        s32 x;
+        s32 y;
+        s32 z;
+        s32 w;
+    };
+    s32 e[4];
+    s32& operator[](int index) {
+        return e[index];
+    }
+};
+
 union v2 {
     f32 e[2];
     struct {

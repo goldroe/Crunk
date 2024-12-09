@@ -98,10 +98,14 @@ inline internal f32 length2(v4 v);
 
 inline internal v2_s32 add_v2_s32(v2_s32 a, v2_s32 b);
 inline internal v3_s32 add_v3_s32(v3_s32 a, v3_s32 b);
+inline internal v2_s32 sub_v2_s32(v2_s32 a, v2_s32 b);
+inline internal v3_s32 sub_v3_s32(v3_s32 a, v3_s32 b);
 
 //@Note Operator overloads
 inline v2_s32 operator+(v2_s32 a, v2_s32 b) {v2_s32 result = add_v2_s32(a, b); return result;}
 inline v3_s32 operator+(v3_s32 a, v3_s32 b) {v3_s32 result = add_v3_s32(a, b); return result;}
+inline v2_s32 operator-(v2_s32 a, v2_s32 b) {v2_s32 result = sub_v2_s32(a, b); return result;}
+inline v3_s32 operator-(v3_s32 a, v3_s32 b) {v3_s32 result = sub_v3_s32(a, b); return result;}
 
 inline v2 operator+(v2 a, v2 b) {v2 result = add_v2(a, b); return result;}
 inline v3 operator+(v3 a, v3 b) {v3 result = add_v3(a, b); return result;}
