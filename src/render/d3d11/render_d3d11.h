@@ -16,6 +16,7 @@ enum D3D11_Shader_Kind {
     D3D11_ShaderKind_UI,
     D3D11_ShaderKind_Quad,
     D3D11_ShaderKind_Mesh,
+    D3D11_ShaderKind_Blocks,
     D3D11_ShaderKind_COUNT
 };
 
@@ -29,6 +30,12 @@ struct D3D11_Uniform_Quad {
 
 struct D3D11_Uniform_Mesh {
     m4 xform; 
+};
+
+struct D3D11_Uniform_Blocks {
+    m4 view;
+    m4 projection;
+    m4 xform;
 };
 
 struct R_D3D11_State {
