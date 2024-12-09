@@ -1,24 +1,9 @@
-
 global World_Generator *world_generator;
 global Game_State *game_state;
 global Chunk_Manager *chunk_manager;
 
 global Texture_Atlas *g_block_atlas;
-global Block g_basic_blocks[BLOCK_COUNT];
-
 global R_Handle icon_tex;
-
-internal u64 djb2_hash_string(String8 string) {
-    u64 result = 5381;
-    for (u64 i = 0; i < string.count; i++) {
-        result = ((result << 5) + result) + string.data[i];
-    }
-    return result;
-}
-
-inline internal bool block_active(Block_ID *block) {
-    return *block != BLOCK_AIR;
-}
 
 internal v3_s32 get_chunk_position(v3 position) {
     v3_s32 result;
@@ -103,97 +88,6 @@ internal f32 get_height_map_value(Texture_Map *map, s32 x, s32 y) {
     return result;
 }
 
-internal void draw_block(Block *block, v3 position, u8 face_mask) {
-    f32 S = 1.0f;
-    v3 p0 = make_v3(position.x,     position.y, position.z + S);
-    v3 p1 = make_v3(position.x + S, position.y, position.z + S);
-    v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
-    v3 p3 = make_v3(position.x, position.y + S, position.z + S);
-    v3 p4 = make_v3(position.x, position.y, position.z);
-    v3 p5 = make_v3(position.x + S, position.y, position.z);
-    v3 p6 = make_v3(position.x + S, position.y + S, position.z);
-    v3 p7 = make_v3(position.x, position.y + S, position.z);
-
-    Texture_Atlas *atlas = g_block_atlas;
-
-    if (!(face_mask & FACE_MASK_TOP)) {
-        Block_Face *face = &block->faces[FACE_TOP];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p3, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p2, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p6, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p7, face->color, make_v2(src.x0, src.y0));
-    }
-    if (!(face_mask & FACE_MASK_BOTTOM)) {
-        Block_Face *face = &block->faces[FACE_BOTTOM];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p1, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p0, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p4, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p5, face->color, make_v2(src.x0, src.y0));
-    }
-    if (!(face_mask & FACE_MASK_NORTH)) {
-        Block_Face *face = &block->faces[FACE_NORTH];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p0, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p1, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p2, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p3, face->color, make_v2(src.x0, src.y0));
-    }
-    if (!(face_mask & FACE_MASK_SOUTH)) {
-        Block_Face *face = &block->faces[FACE_SOUTH];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p5, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p4, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p7, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p6, face->color, make_v2(src.x0, src.y0));
-    }
-    if (!(face_mask & FACE_MASK_EAST)) {
-        Block_Face *face = &block->faces[FACE_EAST];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p1, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p5, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p6, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p2, face->color, make_v2(src.x0, src.y0));
-    }
-    if (!(face_mask & FACE_MASK_WEST)) {
-        Block_Face *face = &block->faces[FACE_WEST];
-        Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
-        draw_3d_vertex(p4, face->color, make_v2(src.x0, src.y1));
-        draw_3d_vertex(p0, face->color, make_v2(src.x1, src.y1));
-        draw_3d_vertex(p3, face->color, make_v2(src.x1, src.y0));
-        draw_3d_vertex(p7, face->color, make_v2(src.x0, src.y0));
-    }
-}
-
-internal void draw_chunk(Chunk *chunk) {
-    for (int z = 0; z < CHUNK_SIZE; z++) {
-        for (int y = 0; y < CHUNK_SIZE; y++) {
-            for (int x = 0; x < CHUNK_SIZE; x++) {
-                Block_ID *block = BLOCK_AT(chunk, x, y, z);
-                v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-                position.x += x;
-                position.y += y;
-                position.z += z;
-
-                if (block_active(block)) {
-                    Block *basic_block = &g_basic_blocks[*block];
-                    u8 face_mask = 0;
-
-                    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_active(BLOCK_AT(chunk, x, y + 1, z));
-                    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_active(BLOCK_AT(chunk, x, y - 1, z));
-                    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_active(BLOCK_AT(chunk, x, y, z + 1));
-                    if (z > 0) face_mask |= FACE_MASK_SOUTH*block_active(BLOCK_AT(chunk, x, y, z - 1));
-                    if (x > 0) face_mask |= FACE_MASK_WEST*block_active(BLOCK_AT(chunk, x - 1, y, z));
-                    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_active(BLOCK_AT(chunk, x + 1, y, z));
-
-                    draw_block(basic_block, position, face_mask);
-                }
-            }
-        }
-    }
-}
-
 internal Chunk *chunk_new(Chunk_Manager *manager) {
     Chunk *result = manager->free_chunks.first;
     if (result) {
@@ -247,25 +141,20 @@ internal void update_chunk_load_list(Chunk_Manager *manager, v3_s32 chunk_positi
         DLLPushBack(manager->free_chunks.first, manager->free_chunks.last, chunk, next, prev);
     }
 
-    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    load_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z);
-    load_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z);
-    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z - 1);
-    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z + 1);
-    load_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z - 1);
-    load_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z + 1);
-    load_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z - 1);
-    load_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z + 1);
+    v3_s32 dim = v3s32(2, 0, 2);
+    s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
+    s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
+    s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
+    s32 max_z = chunk_position.z + (s32)(0.5f * dim.z);
+    for (s32 x = min_x; x < max_x; x++) {
+        for (s32 z = min_z; z < max_z; z++) {
+            load_chunk_at(manager, x, chunk_position.y, z);
+            load_new_chunk_at(manager, x, chunk_position.y, z);
+        }
+    }
 
+    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
     load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z - 1);
-    load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z + 1);
-    load_new_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z - 1);
-    load_new_chunk_at(manager, chunk_position.x - 1, chunk_position.y, chunk_position.z + 1);
-    load_new_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z - 1);
-    load_new_chunk_at(manager, chunk_position.x + 1, chunk_position.y, chunk_position.z + 1);
 }
 
 internal void deserialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
@@ -307,18 +196,6 @@ internal void serialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
     os_write_file(file, buffer, size);
 
     os_close_handle(file);
-}
-
-internal Texture_Region *find_texture_region(Texture_Atlas *atlas, String8 name) {
-    Texture_Region *result = NULL;
-    u64 hash = djb2_hash_string(name);
-    Texture_Region_Bucket *region_bucket = atlas->region_hash_table + hash % atlas->region_hash_table_size;
-    for (Texture_Region *region = region_bucket->first; region; region = region->hash_next) {
-        if (str8_match(region->name, name, StringMatchFlag_Nil)) {
-            result = region;
-        }
-    }
-    return result;
 }
 
 internal void set_block_face(Block_Face *face, String8 texture_name, v4 color) {
@@ -405,8 +282,8 @@ internal void load_blocks() {
 
         Texture_Region *region = &atlas->texture_regions[texture_count];
         region->name = path_strip_file_name(arena, file.file_name);
-        region->offset = v2s32(atlas_x * 64, atlas_y * 64);
-        region->dim = v2s32(64, 64);
+        region->offset = make_v2(atlas_x / (f32)MAX_ATLAS_X, atlas_y / (f32)MAX_ATLAS_Y);
+        region->dim = make_v2(1.0f / MAX_ATLAS_X, 1.0f / MAX_ATLAS_Y);
         region->size = x * y * 4;
         region->data = data;
 
@@ -424,13 +301,17 @@ internal void load_blocks() {
     u8 *bitmap = push_array(arena, u8, atlas->dim.x * atlas->dim.y * bytes_per_pixel);
     for (int tex_idx = 0; tex_idx < texture_count; tex_idx++) {
         Texture_Region *region = &atlas->texture_regions[tex_idx];
-        u8 *dst = bitmap + atlas->dim.x * region->offset.y * bytes_per_pixel + region->offset.x * bytes_per_pixel;
+        int src_pitch = atlas->region_dim.x * bytes_per_pixel;
+        int dst_pitch = atlas->dim.x * bytes_per_pixel;
+
+        // u8 *dst = bitmap + atlas->dim.x * atlas->region_dim.x * region->offset.y * atlas->dim.y * bytes_per_pixel + (int)(64.0f * region->offset.x) * bytes_per_pixel;
+        u8 *dst = bitmap + (int)(region->offset.y * atlas->dim.x * bytes_per_pixel) + (int)(region->offset.x * atlas->dim.x * bytes_per_pixel);
         u8 *src = region->data;
 
-        for (int y = 0; y < region->dim.y; y++) {
-            MemoryCopy(dst, src, region->dim.x * bytes_per_pixel);
-            dst += atlas->dim.x * bytes_per_pixel;
-            src += region->dim.x * bytes_per_pixel;
+        for (int y = 0; y < (int)atlas->dim.y * region->dim.y; y++) {
+            MemoryCopy(dst, src, src_pitch);
+            dst += dst_pitch;
+            src += src_pitch;
         }
     }
     atlas->texture_region_count = texture_count;
@@ -469,6 +350,16 @@ internal void load_blocks() {
         block->faces[FACE_BOTTOM] = block->faces[FACE_TOP];
     }
 
+    {
+        Block *block = &blocks[BLOCK_LEAVES];
+        set_block_face_all(block, str8_lit("oak_leaves.png"), make_v4(0.28f, 0.71f, 0.09f, 1.f));
+    }
+
+    {
+        Block *block = &blocks[BLOCK_WATER];
+        set_block_face_all(block, str8_lit("underwater.png"), make_v4(0.24f, 0.34f, 0.84f, 1.0f));
+        block->flags |= BLOCK_FLAG_TRANSPARENT;
+    }
 }
 
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
@@ -561,6 +452,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         forward_dt -= 1.0f;
     }
 
+    if (key_pressed(OS_KEY_F1)) {
+        game_state->mesh_debug = !game_state->mesh_debug;
+    }
     if (key_pressed(OS_KEY_F4)) {
         game_state->creative_mode = !game_state->creative_mode;
     }
@@ -744,20 +638,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     draw_begin(window_handle);
 
-    ProfileScope("chunk drawing")
-    {
-        v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
-        draw_3d_mesh_begin(projection, view, g_block_atlas->tex_handle, R_RasterizerState_Default);
-        for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-            v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-            AABB chunk_box = make_aabb(position, chunk_size);
-            if (aabb_in_frustum(game_state->frustum, chunk_box)) {
-                draw_chunk(chunk);
-            }
-        }
-    }
-    int mesh_vertices_this_frame = 0;
-    mesh_vertices_this_frame = draw_bucket->batches.last->batch.bytes / sizeof(R_3D_Vertex);
+    draw_chunks(chunk_manager->loaded_chunks, game_state->player->position, game_state->frustum, projection, view, g_block_atlas, game_state->mesh_debug ? R_RasterizerState_Wireframe : R_RasterizerState_Default);
 
     //@Note draw raycast block
     draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
@@ -789,7 +670,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     ui_labelf("delta: %fms", 1000.0 * dt);
     ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
     ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
-    ui_labelf("vertices %d", mesh_vertices_this_frame);
+    // ui_labelf("vertices %d", mesh_vertices_this_frame);
     // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
     // ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);
 

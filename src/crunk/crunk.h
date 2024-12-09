@@ -1,108 +1,5 @@
 #ifndef CRUNK_H
 #define CRUNK_H
-struct Texture_Atlas;
-
-struct Texture_Region {
-    Texture_Region *hash_next;
-    Texture_Region *hash_prev;
-    Texture_Atlas *atlas;
-    String8 name;
-    v2_s32 offset;
-    v2_s32 dim;
-
-    u64 size;
-    u8 *data;
-};
-
-struct Texture_Region_Bucket {
-    Texture_Region *first;
-    Texture_Region *last;
-};
-
-#define MAX_ATLAS_X 64
-#define MAX_ATLAS_Y 32
-struct Texture_Atlas {
-    R_Handle tex_handle;
-
-    v2_s32 dim;
-    v2_s32 region_dim;
-
-    s32 texture_region_count;
-    Texture_Region *texture_regions;
-
-    s32 region_hash_table_size;
-    Texture_Region_Bucket *region_hash_table;
-};
-
-struct Texture_Map {
-    R_Handle texture;
-    v2_s32 size;
-    u8 *data;
-};
-
-struct Camera {
-    v3 position;
-    v3 forward;
-    v3 up;
-    v3 right;
-    f32 yaw;
-    f32 pitch;
-    f32 fov;
-    f32 aspect;
-};
-
-enum Block_ID : u16 {
-    BLOCK_AIR,
-    BLOCK_ERR,
-    BLOCK_STONE,
-    BLOCK_DIRT,
-    BLOCK_GRASS,
-    BLOCK_WOOD,
-    BLOCK_BRICK,
-    BLOCK_SAND,
-    BLOCK_COBBLESTONE,
-    BLOCK_LOG,
-    BLOCK_COUNT
-};
-
-enum Sound_Type {
-    SOUND_BREAKING,
-    SOUND_STEP,
-    SOUND_PLACE,
-    SOUND_COUNT
-};
-
-enum Step_Type {
-    STEP_NIL,
-    STEP_SAND,
-    STEP_WOOD,
-    STEP_GRASS,
-    STEP_DIRT,
-    STEP_STONE,
-    STEP_COUNT
-};
-
-enum Block_Flags {
-    BLOCK_FLAG_NIL     = 0,
-    BLOCK_FLAG_GRAVITY = (1<<0),
-    BLOCK_FLAG_OPAQUE  = (1<<1),
-};
-EnumDefineFlagOperators(Block_Flags);
-
-struct Block_Face {
-    String8 texture_name;
-    Texture_Region *texture_region;
-    v4 color;
-};
-
-struct Block {
-    Block_Flags flags;
-    Block_Face faces[FACE_COUNT];
-    Step_Type step_type;
-
-    // f32 gravity_coefficient;
-    // f32 friction_coefficient;
-};
 
 #define FACE_MASK_NIL     0
 #define FACE_MASK_WEST   (1<<0)
@@ -112,7 +9,21 @@ struct Block {
 #define FACE_MASK_SOUTH  (1<<4)
 #define FACE_MASK_NORTH   (1<<5)
 
+struct Chunk_Node;
 struct Chunk;
+
+struct Chunk_Node_List {
+    Chunk_Node *first;
+    Chunk_Node *last;
+    int count;
+};
+
+struct Chunk_Node {
+    Chunk_Node *prev;
+    Chunk_Node *next;
+    Chunk *chunk;
+};
+
 struct Chunk_List {
     Chunk *first;
     Chunk *last;
@@ -136,7 +47,7 @@ struct Chunk_Manager {
 #define REGION_SIZE 32
 
 #define CHUNK_SIZE 64
-// #define CHUNK_HEIGHT 256
+#define CHUNK_HEIGHT 64
 #define BLOCK_AT(Chunk, X, Y, Z) (&(Chunk)->blocks[(X) + (Y)*CHUNK_SIZE + (Z)*CHUNK_SIZE*CHUNK_SIZE])
 
 #define INVENTORY_SLOTS 36
@@ -193,6 +104,8 @@ struct Game_State {
     Player *player;
 
     Frustum frustum;
+
+    b32 mesh_debug;
 };
 
 #endif // CRUNK_H

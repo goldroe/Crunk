@@ -1,14 +1,14 @@
-#include <noiseutils.h>
-#include <noise/noise.h>
-
-#include <ft2build.h>
-#include <freetype/freetype.h>
-
 #pragma warning(push)
 #pragma warning( disable : 4244)
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #pragma warning(pop)
+
+#include <noiseutils.h>
+#include <noise/noise.h>
+
+#include <ft2build.h>
+#include <freetype/freetype.h>
 
 #include "base/base_core.h"
 #include "base/base_arena.h"
@@ -17,17 +17,23 @@
 #include "auto_array.h"
 #include "os/os.h"
 #include "path/path.h"
+
+#include "atlas.h"
+#include "aabb.h"
+#include "camera.h"
+#include "frustum.h"
+#include "block.h"
+#include "crunk.h"
+
 #include "render/render_core.h"
 #include "render/d3d11/render_d3d11.h"
+
 #include "font/font.h"
 #include "ui/ui_core.h"
 #include "ui/ui_widgets.h"
 #include "draw/draw.h"
 #include "input.h"
 #include "world_gen.h"
-#include "aabb.h"
-#include "frustum.h"
-#include "crunk.h"
 
 #define STB_SPRINTF_IMPLEMENTATION
 #define STB_SPRINTF_DECORATE(name) base_##name
@@ -47,23 +53,15 @@
 #include "ui/ui_widgets.cpp"
 #include "input.cpp"
 #include "world_gen.cpp"
+#include "aabb.cpp"
+#include "atlas.cpp"
 #include "frustum.cpp"
+#include "block.cpp"
 #include "crunk.cpp"
 
 bool window_should_close;
 
 int main() {
-    // noise::utils::RendererImage renderer;
-    // noise::utils::Image image;
-    // renderer.SetSourceNoiseMap(height_noise_map);
-    // renderer.SetDestImage(image);
-    // renderer.Render();
-
-    // noise::utils::WriterBMP writer;
-    // writer.SetSourceImage(image);
-    // writer.SetDestFilename("data/tutorial.bmp");
-    // writer.WriteDestFile();
-
     QueryPerformanceFrequency((LARGE_INTEGER *)&win32_performance_frequency);
     timeBeginPeriod(1);
 
