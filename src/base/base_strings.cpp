@@ -120,3 +120,11 @@ internal u64 str8_find_substr(String8 string, String8 substring) {
     }
     return result;
 }
+
+internal u64 djb2_hash_string(String8 string) {
+    u64 result = 5381;
+    for (u64 i = 0; i < string.count; i++) {
+        result = ((result << 5) + result) + string.data[i];
+    }
+    return result;
+}

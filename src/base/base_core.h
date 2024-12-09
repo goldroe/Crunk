@@ -107,6 +107,8 @@ typedef float  f32;
 typedef double f64;
 typedef uintptr_t uintptr;
 
+typedef u64 R_Handle;
+
 enum Axis2 {
     Axis_X,
     Axis_Y,

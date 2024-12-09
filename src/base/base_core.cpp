@@ -26,6 +26,7 @@ internal Rng_S64 rng_s64(s64 min, s64 max) { if (min > max) Swap(s64, min, max);
 internal s64 rng_s64_len(Rng_S64 rng) { s64 result = rng.max - rng.min; return result; }
 
 internal inline Rect make_rect(f32 x, f32 y, f32 w, f32 h) {Rect result = {x, y, x + w, y + h}; return result;}
+internal inline Rect make_rect(v2 p, v2 dim) {Rect result = {p.x, p.y, p.x + dim.x, p.y + dim.y}; return result;}
 internal inline Rect make_rect_center(v2 position, v2 size) {Rect result = make_rect(position.x - size.x/2.0f, position.y - size.y/2.0f, size.x, size.y); return result;}
 
 internal void shift_rect(Rect *rect, f32 x, f32 y) { rect->x0 += x; rect->x1 += x; rect->y0 += y; rect->y1 += y; }
