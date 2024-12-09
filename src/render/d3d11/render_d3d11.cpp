@@ -207,6 +207,8 @@ internal bool d3d11_make_shader(String8 shader_name, String8 source, const char 
     if (vertex_blob) vertex_blob->Release();
     if (pixel_blob) pixel_blob->Release();
 
+    Assert(compilation_success);
+
     return compilation_success;
 }
 
@@ -488,6 +490,93 @@ inline internal u8 get_chunk_face_mask(Chunk *chunk, int x, int y, int z) {
     return face_mask;
 }
 
+// 0-1 face orientation (TOP, BOT, NS, EW)
+// 1-4 xyz (chunk relative)
+// 4-5 tex index
+// 5-6 color index
+inline internal u64 make_block_vertex_data(Face face, u8 x, u8 y, u8 z, u8 tex, u8 col) {
+    u64 result;
+    // result = ((u64)face<<56) | ((u64)x<<48) | ((u64)y<<40) | ((u64)z<<32) | (tex<<24) | (col<<16);
+    result = (u64)face | (x<<8) | (y<<16) | ((u64)z<<24) | ((u64)tex<<32) | ((u64)col<<40);
+    return result;
+}
+
+
+internal void d3d11_render_chunk(Chunk *chunk, Auto_Array<u64> &vertices) {
+#define push_block_vertex(F, P) (vertices.push(make_block_vertex_data(F, (u8)P.x, (u8)P.y, (u8)P.z, 0, 0)))
+    vertices.reset_count();
+    for (int z = 0; z < CHUNK_SIZE; z++) {
+        for (int y = 0; y < CHUNK_HEIGHT; y++) {
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                Block_ID *block = BLOCK_AT(chunk, x, y, z);
+                if (block_active(block)) {
+                    Block *basic_block = get_basic_block(*block);
+                    u8 face_mask = get_chunk_face_mask(chunk, x, y, z);
+
+                    const int S = 1;
+                    v3_s32 p0 = v3s32(x,     y,     z + S);
+                    v3_s32 p1 = v3s32(x + S, y,     z + S);
+                    v3_s32 p2 = v3s32(x + S, y + S, z + S);
+                    v3_s32 p3 = v3s32(x,     y + S, z + S);
+                    v3_s32 p4 = v3s32(x,     y,     z);
+                    v3_s32 p5 = v3s32(x + S, y,     z);
+                    v3_s32 p6 = v3s32(x + S, y + S, z);
+                    v3_s32 p7 = v3s32(x,     y + S, z);
+
+                    if (!(face_mask & FACE_MASK_TOP)) {
+                        push_block_vertex(FACE_TOP, p3);
+                        push_block_vertex(FACE_TOP, p2);
+                        push_block_vertex(FACE_TOP, p6);
+                        push_block_vertex(FACE_TOP, p6);
+                        push_block_vertex(FACE_TOP, p7);
+                        push_block_vertex(FACE_TOP, p3);
+                    }
+                    if (!(face_mask & FACE_MASK_BOTTOM)) {
+                        push_block_vertex(FACE_BOTTOM, p1);
+                        push_block_vertex(FACE_BOTTOM, p0);
+                        push_block_vertex(FACE_BOTTOM, p4);
+                        push_block_vertex(FACE_BOTTOM, p4);
+                        push_block_vertex(FACE_BOTTOM, p5);
+                        push_block_vertex(FACE_BOTTOM, p1);
+                    }
+                    if (!(face_mask & FACE_MASK_NORTH)) {
+                        push_block_vertex(FACE_NORTH, p0);
+                        push_block_vertex(FACE_NORTH, p1);
+                        push_block_vertex(FACE_NORTH, p2);
+                        push_block_vertex(FACE_NORTH, p2);
+                        push_block_vertex(FACE_NORTH, p3);
+                        push_block_vertex(FACE_NORTH, p0);
+                    }
+                    if (!(face_mask & FACE_MASK_SOUTH)) {
+                        push_block_vertex(FACE_SOUTH, p5);
+                        push_block_vertex(FACE_SOUTH, p4);
+                        push_block_vertex(FACE_SOUTH, p7);
+                        push_block_vertex(FACE_SOUTH, p7);
+                        push_block_vertex(FACE_SOUTH, p6);
+                        push_block_vertex(FACE_SOUTH, p5);
+                    }
+                    if (!(face_mask & FACE_MASK_EAST)) {
+                        push_block_vertex(FACE_EAST, p1);
+                        push_block_vertex(FACE_EAST, p5);
+                        push_block_vertex(FACE_EAST, p6);
+                        push_block_vertex(FACE_EAST, p6);
+                        push_block_vertex(FACE_EAST, p2);
+                        push_block_vertex(FACE_EAST, p1);
+                    }
+                    if (!(face_mask & FACE_MASK_WEST)) {
+                        push_block_vertex(FACE_WEST, p4);
+                        push_block_vertex(FACE_WEST, p0);
+                        push_block_vertex(FACE_WEST, p3);
+                        push_block_vertex(FACE_WEST, p3);
+                        push_block_vertex(FACE_WEST, p7);
+                        push_block_vertex(FACE_WEST, p4);
+                    }
+                }
+            }
+        }
+    }
+}
+
 internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
     HRESULT hr = S_OK;
     D3D11_VIEWPORT viewport{};
@@ -508,25 +597,22 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
     r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[0], NULL, 0xffffffff);
     r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Point]);
 
-    ID3D11Query *disjoint_query = NULL;
-    {
-        D3D11_QUERY_DESC desc = {};
-        desc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
-        r_d3d11_state->device->CreateQuery(&desc, &disjoint_query);
-    }
-
-    ID3D11Query *start_query = NULL, *end_query = NULL;
-    {
-        D3D11_QUERY_DESC query_desc = {};
-        query_desc.Query = D3D11_QUERY_TIMESTAMP;
-        r_d3d11_state->device->CreateQuery(&query_desc, &start_query);
-        r_d3d11_state->device->CreateQuery(&query_desc, &end_query);
-    }
-
+    // ID3D11Query *disjoint_query = NULL;
+    // {
+    //     D3D11_QUERY_DESC desc = {};
+    //     desc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
+    //     r_d3d11_state->device->CreateQuery(&desc, &disjoint_query);
+    // }
+    // ID3D11Query *start_query = NULL, *end_query = NULL;
+    // {
+    //     D3D11_QUERY_DESC query_desc = {};
+    //     query_desc.Query = D3D11_QUERY_TIMESTAMP;
+    //     r_d3d11_state->device->CreateQuery(&query_desc, &start_query);
+    //     r_d3d11_state->device->CreateQuery(&query_desc, &end_query);
+    // }
     UINT64 tick_start = 0;
     UINT64 tick_end = 0;
-
-    r_d3d11_state->device_context->Begin(disjoint_query);
+    // r_d3d11_state->device_context->Begin(disjoint_query);
 
     for (R_Batch_Node *batch_node = draw_bucket->batches.first; batch_node; batch_node = batch_node->next) {
         R_Batch batch = batch_node->batch;
@@ -539,140 +625,11 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
         case R_ParamsKind_Blocks:
         {
-            r_d3d11_state->device_context->End(start_query);
+            // r_d3d11_state->device_context->End(start_query);
 
             R_Params_Blocks *params_blocks = params.params_blocks;
-            Auto_Array<Chunk*> visible_chunks;
-            visible_chunks.reserve(params_blocks->chunks.count);
-
-            v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
-            for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
-                v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-                AABB chunk_box = make_aabb(position, chunk_size);
-                if (aabb_in_frustum(params_blocks->frustum, chunk_box)) {
-                    visible_chunks.push(chunk);
-                }
-            }
-
-            Auto_Array<R_3D_Vertex> vertices;
-            vertices.reserve(4 * FACE_COUNT * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * visible_chunks.count);
-
-#define push_block_vertex(P, C, S) vertices.push(r_3d_vertex(P, C, S));
-
-            //@Todo Block Sorting
-            // Auto_Array<Block_ID*> opaque_blocks;
-
-            // visible_blocks.reserve(sizeof(Block_ID) *renderable_chunks.count * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
-            // for (int i = 0; i < renderable_chunks.count; i++) {
-            //     Chunk *chunk = renderable_chunks[i];
-            //     for (int z = 0; z < CHUNK_SIZE; z++) {
-            //         for (int y = 0; y < CHUNK_SIZE; y++) {
-            //             for (int x = 0; x < CHUNK_SIZE; x++) {
-            //                 Block_ID *block = BLOCK_AT(chunk, x, y, z);
-            //                 v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-            //             }
-            //         }
-            //     }
-            // }
-
-
             Texture_Atlas *atlas = params_blocks->atlas;
 
-            Rect src;
-
-            for (int i = 0; i < visible_chunks.count; i++) {
-                Chunk *chunk = visible_chunks[i];
-                for (int z = 0; z < CHUNK_SIZE; z++) {
-                    for (int y = 0; y < CHUNK_SIZE; y++) {
-                        for (int x = 0; x < CHUNK_SIZE; x++) {
-                            Block_ID *block = BLOCK_AT(chunk, x, y, z);
-                            v3 position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-                            position.x += x;
-                            position.y += y;
-                            position.z += z;
-
-                            if (block_active(block)) {
-                                Block *basic_block = get_basic_block(*block);
-                                u8 face_mask = get_chunk_face_mask(chunk, x, y, z);
-
-                                const f32 S = 1.0f;
-                                v3 p0 = make_v3(position.x,     position.y, position.z + S);
-                                v3 p1 = make_v3(position.x + S, position.y, position.z + S);
-                                v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
-                                v3 p3 = make_v3(position.x, position.y + S, position.z + S);
-                                v3 p4 = make_v3(position.x, position.y, position.z);
-                                v3 p5 = make_v3(position.x + S, position.y, position.z);
-                                v3 p6 = make_v3(position.x + S, position.y + S, position.z);
-                                v3 p7 = make_v3(position.x, position.y + S, position.z);
-
-                                if (!(face_mask & FACE_MASK_TOP)) {
-                                    Block_Face *face = &basic_block->faces[FACE_TOP];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p3, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p2, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p6, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p6, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p7, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p3, face->color, make_v2(src.x0, src.y1));
-                                }
-                                if (!(face_mask & FACE_MASK_BOTTOM)) {
-                                    Block_Face *face = &basic_block->faces[FACE_BOTTOM];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p1, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p0, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p4, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p4, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p5, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p1, face->color, make_v2(src.x0, src.y1));
-                                }
-                                if (!(face_mask & FACE_MASK_NORTH)) {
-                                    Block_Face *face = &basic_block->faces[FACE_NORTH];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p0, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p1, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p2, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p2, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p3, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p0, face->color, make_v2(src.x0, src.y1));
-                                }
-                                if (!(face_mask & FACE_MASK_SOUTH)) {
-                                    Block_Face *face = &basic_block->faces[FACE_SOUTH];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p5, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p4, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p7, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p7, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p6, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p5, face->color, make_v2(src.x0, src.y1));
-                                }
-                                if (!(face_mask & FACE_MASK_EAST)) {
-                                    Block_Face *face = &basic_block->faces[FACE_EAST];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p1, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p5, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p6, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p6, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p2, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p1, face->color, make_v2(src.x0, src.y1));
-                                }
-                                if (!(face_mask & FACE_MASK_WEST)) {
-                                    Block_Face *face = &basic_block->faces[FACE_WEST];
-                                    src = make_rect(face->texture_region->offset, face->texture_region->dim);
-                                    push_block_vertex(p4, face->color, make_v2(src.x0, src.y1));
-                                    push_block_vertex(p0, face->color, make_v2(src.x1, src.y1));
-                                    push_block_vertex(p3, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p3, face->color, make_v2(src.x1, src.y0));
-                                    push_block_vertex(p7, face->color, make_v2(src.x0, src.y0));
-                                    push_block_vertex(p4, face->color, make_v2(src.x0, src.y1));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            visible_chunks.clear();
-            
             r_d3d11_state->device_context->RSSetState(r_d3d11_state->rasterizer_states[params_blocks->rasterizer]);
             r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
             r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Block]);
@@ -681,27 +638,64 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             if (params_blocks->rasterizer == R_RasterizerState_Wireframe) depth_state = R_DepthState_Wireframe;
             r_d3d11_state->device_context->OMSetDepthStencilState(r_d3d11_state->depth_stencil_states[depth_state], 0);
 
-            R_Handle tex = params_blocks->atlas->tex_handle;
-            if (tex == 0) {
+            r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
+
+            //@Todo Block Sorting
+            // Auto_Array<Block_ID*> opaque_blocks;
+            R_Handle tex = atlas->tex_handle;
+            // if (tex == 0) {
                 tex = r_d3d11_state->fallback_tex;
-            }
+            // }
             R_D3D11_Tex2D *tex2d = (R_D3D11_Tex2D *)tex;
             r_d3d11_state->device_context->PSSetShaderResources(0, 1, &tex2d->view);
 
-            ID3D11VertexShader *vertex_shader = r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Mesh];
-            ID3D11PixelShader *pixel_shader = r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Mesh];
+            ID3D11VertexShader *vertex_shader = r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Blocks];
+            ID3D11PixelShader *pixel_shader = r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Blocks];
             r_d3d11_state->device_context->VSSetShader(vertex_shader, NULL, 0);
             r_d3d11_state->device_context->PSSetShader(pixel_shader, NULL, 0);
 
-            D3D11_Uniform_Mesh uniform = {};
-            // uniform.projection = params_blocks->projection;
-            // uniform.view = params_blocks->view;
-            uniform.xform = params_blocks->projection * params_blocks->view;
-            ID3D11Buffer *uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Mesh]; d3d11_upload_uniform(uniform_buffer, (void *)&uniform, sizeof(D3D11_Uniform_Mesh));
+            ID3D11Buffer *uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_UniformKind_Blocks];
+            ID3D11Buffer *chunk_uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_UniformKind_BlocksPerChunk];
             r_d3d11_state->device_context->VSSetConstantBuffers(0, 1, &uniform_buffer);
+            r_d3d11_state->device_context->VSSetConstantBuffers(1, 1, &chunk_uniform_buffer);
 
-            r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Mesh]);
+            D3D11_Uniform_Blocks uniform = {};
+            uniform.projection = params_blocks->projection;
+            uniform.view = params_blocks->view;
+            d3d11_upload_uniform(uniform_buffer, (void *)&uniform, sizeof(D3D11_Uniform_Blocks));
+
+            D3D11_Uniform_BlocksPerChunk chunk_uniform = {};
+
+            Auto_Array<u64> vertices;
+            vertices.reserve(6 * FACE_COUNT * CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
+
+            v3_s32 player_position = v3s32((s32)floorf(params_blocks->position.x), (s32)floorf(params_blocks->position.y), (s32)floorf(params_blocks->position.z));
+            v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+            for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
+                v3 chunk_position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
+                AABB chunk_aabb = make_aabb(chunk_position, chunk_size);
+
+                v3_s32 chunk_world_position = chunk->position;
+                chunk_world_position.x *= CHUNK_SIZE;
+                chunk_world_position.y *= CHUNK_HEIGHT;
+                chunk_world_position.z *= CHUNK_SIZE;
+                if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
+                    chunk_uniform.world_position_offset = make_v4(0.0f, 0.0f, 0.0f, 0.0f);
+                    chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0}; // - player_position;
+
+                    d3d11_render_chunk(chunk, vertices);
+
+                    d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
+
+                    ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
+                    UINT stride = sizeof(u64), offset = 0;
+                    r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+                    r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
+                }
+            }
+
+            vertices.clear();
 
             // ID3D11Buffer *shader_geometry_buffer = NULL;
             // ID3D11ShaderResourceView *geometry_srv = NULL;
@@ -725,18 +719,8 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             // }
             // r_d3d11_state->device_context->VSSetShaderResources(0, 1, &geometry_srv);
 
-            ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(R_3D_Vertex));
+            // r_d3d11_state->device_context->End(end_query);
 
-            UINT stride = sizeof(R_3D_Vertex), offset = 0;
-            r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-
-            r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
-
-            r_d3d11_state->device_context->End(end_query);
-
-            vertices.clear();
-            // free(geometry_buffer);
-            // free(vertices);
             break;
         }
 
@@ -1130,7 +1114,7 @@ internal void d3d11_render_initialize(HWND window_handle) {
         { "STY", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Rect, border_thickness), D3D11_INPUT_PER_INSTANCE_DATA, 1 },
     };
     d3d11_make_shader(str8_lit("Rect"), str8_cstring(r_d3d11_g_shader_rect), "vs_main", "ps_main", rect_ilay, ArrayCount(rect_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_UI], &r_d3d11_state->input_layouts[D3D11_ShaderKind_UI]);
-    r_d3d11_state->uniform_buffers[D3D11_ShaderKind_UI] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_UI));
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_UI] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_UI));
 
     D3D11_INPUT_ELEMENT_DESC quad_ilay[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_2D_Vertex, dst),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -1139,7 +1123,7 @@ internal void d3d11_render_initialize(HWND window_handle) {
         { "STY",      0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_2D_Vertex, omit_tex), D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
     d3d11_make_shader(str8_lit("Quad"), str8_cstring(r_d3d11_g_shader_quad), "vs_main", "ps_main", quad_ilay, ArrayCount(quad_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Quad], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Quad]);
-    r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Quad] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Quad));
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_Quad] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Quad));
 
     D3D11_INPUT_ELEMENT_DESC mesh_ilay[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(R_3D_Vertex, pos),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -1147,13 +1131,13 @@ internal void d3d11_render_initialize(HWND window_handle) {
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_3D_Vertex, tex),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
     d3d11_make_shader(str8_lit("Mesh"), str8_cstring(r_d3d11_g_shader_mesh), "vs_main", "ps_main", mesh_ilay, ArrayCount(mesh_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Mesh], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Mesh], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Mesh]);
-    r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Mesh] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Mesh));
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_Mesh] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Mesh));
 
     D3D11_INPUT_ELEMENT_DESC blocks_ilay[] = {
-        { "FACEINDEX", 0, DXGI_FORMAT_R32_UINT, 0, offsetof(R_Block_Vertex, face_idx), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        // { "TEXINDEX", 0, DXGI_R32_UINT, 0, offsetof(R_Block_Vertex,  tex_idx), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "BLOCK_DATA", 0, DXGI_FORMAT_R32G32_UINT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
 
     d3d11_make_shader_from_file(str8_lit("data/shaders/block.hlsl"), "vs_main", "ps_main", blocks_ilay, ArrayCount(blocks_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Blocks], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Blocks], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
-    r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Blocks] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Blocks));
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_Blocks] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Blocks));
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_BlocksPerChunk] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_BlocksPerChunk));
 }

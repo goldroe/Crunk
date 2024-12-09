@@ -20,6 +20,15 @@ enum D3D11_Shader_Kind {
     D3D11_ShaderKind_COUNT
 };
 
+enum D3D11_Uniform_Kind {
+    D3D11_UniformKind_UI,
+    D3D11_UniformKind_Quad,
+    D3D11_UniformKind_Mesh,
+    D3D11_UniformKind_Blocks,
+    D3D11_UniformKind_BlocksPerChunk,
+    D3D11_UniformKind_COUNT
+};
+
 struct D3D11_Uniform_UI {
     m4 xform;
 };
@@ -35,7 +44,11 @@ struct D3D11_Uniform_Mesh {
 struct D3D11_Uniform_Blocks {
     m4 view;
     m4 projection;
-    m4 xform;
+};
+
+struct D3D11_Uniform_BlocksPerChunk {
+    v4_s32 world_position;
+    v4 world_position_offset;
 };
 
 struct R_D3D11_State {
@@ -54,7 +67,7 @@ struct R_D3D11_State {
     ID3D11VertexShader *vertex_shaders[D3D11_ShaderKind_COUNT];
     ID3D11PixelShader *pixel_shaders[D3D11_ShaderKind_COUNT];
     ID3D11InputLayout *input_layouts[D3D11_ShaderKind_COUNT];
-    ID3D11Buffer *uniform_buffers[D3D11_ShaderKind_COUNT];
+    ID3D11Buffer *uniform_buffers[D3D11_UniformKind_COUNT];
 
     R_D3D11_Tex2D *first_free_tex2d;
 
