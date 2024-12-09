@@ -1,8 +1,6 @@
 #ifndef RENDER_CORE_H
 #define RENDER_CORE_H
 
-typedef u64 R_Handle;
-
 enum R_Rasterizer_Kind {
     R_RasterizerState_Default,
     R_RasterizerState_Wireframe,
@@ -43,11 +41,6 @@ struct R_2D_Vertex {
     v3 padding_;
 };
 
-// struct R_3D_Box {
-//     v3 corners[8];
-//     v2 tex_coords[];
-// };
-
 struct R_2D_Rect {
     Rect dst;
     Rect src;
@@ -63,11 +56,18 @@ struct R_3D_Vertex {
     v2 tex;
 };
 
+struct R_Block_Vertex {
+    u32 face_idx;
+    // u32 tex_idx;
+    // flags
+};
+
 enum R_Params_Kind {
     R_ParamsKind_Nil,
     R_ParamsKind_UI,
     R_ParamsKind_Quad,
     R_ParamsKind_Mesh,
+    R_ParamsKind_Blocks,
     R_ParamsKind_COUNT,
 };
 
@@ -90,12 +90,23 @@ struct R_Params_Mesh {
     R_Rasterizer_Kind rasterizer;
 };
 
+struct R_Params_Blocks {
+    m4 projection;
+    m4 view;
+    Texture_Atlas *atlas;
+    R_Rasterizer_Kind rasterizer;
+    Chunk_List chunks;
+    Frustum frustum;
+    v3 position;
+};
+
 struct R_Params {
     R_Params_Kind kind;
     union {
         R_Params_UI *params_ui;
         R_Params_Quad *params_quad;
         R_Params_Mesh *params_mesh;
+        R_Params_Blocks *params_blocks;
     };
 };
 
