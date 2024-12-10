@@ -54,3 +54,12 @@ internal Axis2 axis_flip(Axis2 axis) {Axis2 result; if (axis == Axis_X) result =
 
 internal inline bool operator==(v3_s32 left, v3_s32 right) {return left.x == right.x && left.y == right.y && left.z == right.z;}
 internal inline bool operator!=(v3_s32 left, v3_s32 right) {return !(left == right);}
+
+internal inline RGBA make_rgba(u8 r, u8 g, u8 b, u8 a) {
+    RGBA result;
+    result.r = r;
+    result.g = g;
+    result.b = b;
+    result.a = a;
+    return result;
+}

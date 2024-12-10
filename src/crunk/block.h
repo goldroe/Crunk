@@ -27,7 +27,7 @@ enum Block_ID : u16 {
 struct Block_Face {
     String8 texture_name;
     Texture_Region *texture_region;
-    v4 color;
+    u8 color_id;
 };
 
 enum Sound_Type {

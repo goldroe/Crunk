@@ -8,9 +8,9 @@ struct Texture_Region {
     Texture_Region *hash_prev;
     Texture_Atlas *atlas;
     String8 name;
+    u32 atlas_index;
     v2 offset;
     v2 dim;
-
     u64 size;
     u8 *data;
 };

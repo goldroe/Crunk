@@ -141,7 +141,9 @@ internal void update_chunk_load_list(Chunk_Manager *manager, v3_s32 chunk_positi
         DLLPushBack(manager->free_chunks.first, manager->free_chunks.last, chunk, next, prev);
     }
 
-    v3_s32 dim = v3s32(2, 0, 2);
+    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
+    load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
+    v3_s32 dim = v3s32(4, 0, 4);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -152,9 +154,6 @@ internal void update_chunk_load_list(Chunk_Manager *manager, v3_s32 chunk_positi
             load_new_chunk_at(manager, x, chunk_position.y, z);
         }
     }
-
-    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
 }
 
 internal void deserialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
@@ -198,19 +197,19 @@ internal void serialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
     os_close_handle(file);
 }
 
-internal void set_block_face(Block_Face *face, String8 texture_name, v4 color) {
+internal void set_block_face(Block_Face *face, String8 texture_name, u8 color_id) {
     Texture_Region *region = find_texture_region(g_block_atlas, texture_name);
     face->texture_name = texture_name;
     face->texture_region = region;
-    face->color = color;
+    face->color_id = color_id;
 }
 
-internal void set_block_face_all(Block *block, String8 texture_name, v4 color) {
+internal void set_block_face_all(Block *block, String8 texture_name, u8 color_id) {
     Texture_Region *region = find_texture_region(g_block_atlas, texture_name);
     Assert(region);
     block->faces[FACE_TOP].texture_name = texture_name;
     block->faces[FACE_TOP].texture_region = region;
-    block->faces[FACE_TOP].color = color;
+    block->faces[FACE_TOP].color_id = color_id;
     block->faces[FACE_BOTTOM] = block->faces[FACE_NORTH] = block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_TOP];
 }
 
@@ -286,6 +285,7 @@ internal void load_blocks() {
         region->dim = make_v2(1.0f / MAX_ATLAS_X, 1.0f / MAX_ATLAS_Y);
         region->size = x * y * 4;
         region->data = data;
+        region->atlas_index = texture_count;
 
         u64 index = djb2_hash_string(region->name) % atlas->region_hash_table_size;
         Texture_Region_Bucket *bucket = atlas->region_hash_table + index;
@@ -304,7 +304,6 @@ internal void load_blocks() {
         int src_pitch = atlas->region_dim.x * bytes_per_pixel;
         int dst_pitch = atlas->dim.x * bytes_per_pixel;
 
-        // u8 *dst = bitmap + atlas->dim.x * atlas->region_dim.x * region->offset.y * atlas->dim.y * bytes_per_pixel + (int)(64.0f * region->offset.x) * bytes_per_pixel;
         u8 *dst = bitmap + (int)(region->offset.y * atlas->dim.x * bytes_per_pixel) + (int)(region->offset.x * atlas->dim.x * bytes_per_pixel);
         u8 *src = region->data;
 
@@ -323,41 +322,41 @@ internal void load_blocks() {
     Block *blocks = g_basic_blocks;
     {
         Block *block = &blocks[BLOCK_STONE];
-        set_block_face_all(block, str8_lit("stone.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        set_block_face_all(block, str8_lit("stone.png"), 0);
         block->step_type = STEP_STONE;
     }
 
     {
         Block *block = &blocks[BLOCK_DIRT];
-        set_block_face_all(block, str8_lit("dirt.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        set_block_face_all(block, str8_lit("dirt.png"), 0);
         block->step_type = STEP_DIRT;
     }
 
     {
         Block *block = &blocks[BLOCK_GRASS];
-        set_block_face(block->faces + FACE_TOP, str8_lit("grass_block_top.png"), make_v4(0.62f, 0.95f, 0.47f, 1.f));
-        set_block_face(block->faces + FACE_BOTTOM, str8_lit("dirt.png"), make_v4(1.f, 1.f, 1.f, 1.f));
-        set_block_face(block->faces + FACE_NORTH, str8_lit("grass_block_side.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        set_block_face(block->faces + FACE_TOP, str8_lit("grass_block_top.png"), 5);
+        set_block_face(block->faces + FACE_BOTTOM, str8_lit("dirt.png"), 0);
+        set_block_face(block->faces + FACE_NORTH, str8_lit("grass_block_side.png"), 0);
         block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_NORTH];
         block->step_type = STEP_GRASS;
     }
 
     {
         Block *block = &blocks[BLOCK_LOG];
-        set_block_face(block->faces + FACE_TOP, str8_lit("oak_log_top.png"), make_v4(1.f, 1.f, 1.f, 1.f));
-        set_block_face(block->faces + FACE_NORTH, str8_lit("oak_log.png"), make_v4(1.f, 1.f, 1.f, 1.f));
+        set_block_face(block->faces + FACE_TOP, str8_lit("oak_log_top.png"), 0);
+        set_block_face(block->faces + FACE_NORTH, str8_lit("oak_log.png"), 0);
         block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_NORTH];
         block->faces[FACE_BOTTOM] = block->faces[FACE_TOP];
     }
 
     {
         Block *block = &blocks[BLOCK_LEAVES];
-        set_block_face_all(block, str8_lit("oak_leaves.png"), make_v4(0.28f, 0.71f, 0.09f, 1.f));
+        set_block_face_all(block, str8_lit("oak_leaves.png"), 3);
     }
 
     {
         Block *block = &blocks[BLOCK_WATER];
-        set_block_face_all(block, str8_lit("underwater.png"), make_v4(0.24f, 0.34f, 0.84f, 1.0f));
+        set_block_face_all(block, str8_lit("underwater.png"), 6);
         block->flags |= BLOCK_FLAG_TRANSPARENT;
     }
 }

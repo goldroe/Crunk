@@ -495,15 +495,12 @@ inline internal u8 get_chunk_face_mask(Chunk *chunk, int x, int y, int z) {
 // 4-5 tex index
 // 5-6 color index
 inline internal u64 make_block_vertex_data(Face face, u8 x, u8 y, u8 z, u8 tex, u8 col) {
-    u64 result;
-    // result = ((u64)face<<56) | ((u64)x<<48) | ((u64)y<<40) | ((u64)z<<32) | (tex<<24) | (col<<16);
-    result = (u64)face | (x<<8) | (y<<16) | ((u64)z<<24) | ((u64)tex<<32) | ((u64)col<<40);
+    u64 result = (u64)face | (x<<8) | (y<<16) | ((u64)z<<24) | ((u64)tex<<32) | ((u64)col<<40);
     return result;
 }
 
-
 internal void d3d11_render_chunk(Chunk *chunk, Auto_Array<u64> &vertices) {
-#define push_block_vertex(F, P) (vertices.push(make_block_vertex_data(F, (u8)P.x, (u8)P.y, (u8)P.z, 0, 0)))
+#define push_block_vertex(F, P, T, C) (vertices.push(make_block_vertex_data(F, (u8)P.x, (u8)P.y, (u8)P.z, T, C)))
     vertices.reset_count();
     for (int z = 0; z < CHUNK_SIZE; z++) {
         for (int y = 0; y < CHUNK_HEIGHT; y++) {
@@ -524,52 +521,64 @@ internal void d3d11_render_chunk(Chunk *chunk, Auto_Array<u64> &vertices) {
                     v3_s32 p7 = v3s32(x,     y + S, z);
 
                     if (!(face_mask & FACE_MASK_TOP)) {
-                        push_block_vertex(FACE_TOP, p3);
-                        push_block_vertex(FACE_TOP, p2);
-                        push_block_vertex(FACE_TOP, p6);
-                        push_block_vertex(FACE_TOP, p6);
-                        push_block_vertex(FACE_TOP, p7);
-                        push_block_vertex(FACE_TOP, p3);
+                        Block_Face *face = &basic_block->faces[FACE_TOP];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_TOP, p3, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_TOP, p2, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_TOP, p6, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_TOP, p6, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_TOP, p7, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_TOP, p3, atlas_index + 0, face->color_id);
                     }
                     if (!(face_mask & FACE_MASK_BOTTOM)) {
-                        push_block_vertex(FACE_BOTTOM, p1);
-                        push_block_vertex(FACE_BOTTOM, p0);
-                        push_block_vertex(FACE_BOTTOM, p4);
-                        push_block_vertex(FACE_BOTTOM, p4);
-                        push_block_vertex(FACE_BOTTOM, p5);
-                        push_block_vertex(FACE_BOTTOM, p1);
+                        Block_Face *face = &basic_block->faces[FACE_BOTTOM];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_BOTTOM, p1, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_BOTTOM, p0, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_BOTTOM, p4, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_BOTTOM, p4, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_BOTTOM, p5, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_BOTTOM, p1, atlas_index + 0, face->color_id);
                     }
                     if (!(face_mask & FACE_MASK_NORTH)) {
-                        push_block_vertex(FACE_NORTH, p0);
-                        push_block_vertex(FACE_NORTH, p1);
-                        push_block_vertex(FACE_NORTH, p2);
-                        push_block_vertex(FACE_NORTH, p2);
-                        push_block_vertex(FACE_NORTH, p3);
-                        push_block_vertex(FACE_NORTH, p0);
+                        Block_Face *face = &basic_block->faces[FACE_NORTH];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_NORTH, p0, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_NORTH, p1, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_NORTH, p2, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_NORTH, p2, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_NORTH, p3, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_NORTH, p0, atlas_index + 0, face->color_id);
                     }
                     if (!(face_mask & FACE_MASK_SOUTH)) {
-                        push_block_vertex(FACE_SOUTH, p5);
-                        push_block_vertex(FACE_SOUTH, p4);
-                        push_block_vertex(FACE_SOUTH, p7);
-                        push_block_vertex(FACE_SOUTH, p7);
-                        push_block_vertex(FACE_SOUTH, p6);
-                        push_block_vertex(FACE_SOUTH, p5);
+                        Block_Face *face = &basic_block->faces[FACE_SOUTH];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_SOUTH, p5, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_SOUTH, p4, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_SOUTH, p7, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_SOUTH, p7, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_SOUTH, p6, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_SOUTH, p5, atlas_index + 0, face->color_id);
                     }
                     if (!(face_mask & FACE_MASK_EAST)) {
-                        push_block_vertex(FACE_EAST, p1);
-                        push_block_vertex(FACE_EAST, p5);
-                        push_block_vertex(FACE_EAST, p6);
-                        push_block_vertex(FACE_EAST, p6);
-                        push_block_vertex(FACE_EAST, p2);
-                        push_block_vertex(FACE_EAST, p1);
+                        Block_Face *face = &basic_block->faces[FACE_EAST];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_EAST, p1, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_EAST, p5, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_EAST, p6, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_EAST, p6, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_EAST, p2, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_EAST, p1, atlas_index + 0, face->color_id);
                     }
                     if (!(face_mask & FACE_MASK_WEST)) {
-                        push_block_vertex(FACE_WEST, p4);
-                        push_block_vertex(FACE_WEST, p0);
-                        push_block_vertex(FACE_WEST, p3);
-                        push_block_vertex(FACE_WEST, p3);
-                        push_block_vertex(FACE_WEST, p7);
-                        push_block_vertex(FACE_WEST, p4);
+                        Block_Face *face = &basic_block->faces[FACE_WEST];
+                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
+                        push_block_vertex(FACE_WEST, p4, atlas_index + 0, face->color_id);
+                        push_block_vertex(FACE_WEST, p0, atlas_index + 1, face->color_id);
+                        push_block_vertex(FACE_WEST, p3, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_WEST, p3, atlas_index + 2, face->color_id);
+                        push_block_vertex(FACE_WEST, p7, atlas_index + 3, face->color_id);
+                        push_block_vertex(FACE_WEST, p4, atlas_index + 0, face->color_id);
                     }
                 }
             }
@@ -641,12 +650,59 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
 
+            //@Note UV buffer
+            v2 *uv_array = (v2 *)malloc(4 * atlas->texture_region_count * sizeof(v2));
+            int region_count = 0;
+            for (int region_bucket_idx = 0; region_bucket_idx < atlas->region_hash_table_size; region_bucket_idx++) {
+                Texture_Region_Bucket *bucket = &atlas->region_hash_table[region_bucket_idx];
+                for (Texture_Region *region = bucket->first; region; region = region->hash_next) {
+                    int region_idx = region->atlas_index;
+                    uv_array[region_idx * 4 + 0] = region->offset + make_v2(0.0f, region->dim.y);
+                    uv_array[region_idx * 4 + 1] = region->offset + make_v2(region->dim.x, region->dim.y);
+                    uv_array[region_idx * 4 + 2] = region->offset + make_v2(region->dim.x, 0.0f);
+                    uv_array[region_idx * 4 + 3] = region->offset + make_v2(0.0f, 0.0f);
+                }
+            }
+            ID3D11Buffer *uv_buffer = NULL;
+            ID3D11ShaderResourceView *uv_srv = NULL;
+            {
+                D3D11_BUFFER_DESC desc{};
+                desc.ByteWidth = (UINT)(4 * atlas->texture_region_count * sizeof(v2));
+                desc.Usage = D3D11_USAGE_DEFAULT;
+                desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
+                desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+                desc.StructureByteStride = sizeof(v2);
+                D3D11_SUBRESOURCE_DATA res{};
+                res.pSysMem = uv_array;
+                hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &uv_buffer);
+                hr = r_d3d11_state->device->CreateShaderResourceView(uv_buffer, NULL, &uv_srv);
+            }
+            r_d3d11_state->device_context->VSSetShaderResources(1, 1, &uv_srv);
+
+            //@Note Color table buffer
+            ID3D11Buffer *color_table_buffer = NULL;
+            ID3D11ShaderResourceView *color_table_srv = NULL;
+            {
+                D3D11_BUFFER_DESC desc{};
+                desc.ByteWidth = (UINT)sizeof(g_block_color_table);
+                desc.Usage = D3D11_USAGE_DEFAULT;
+                desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
+                desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+                desc.StructureByteStride = sizeof(u32);
+                D3D11_SUBRESOURCE_DATA res{};
+                res.pSysMem = g_block_color_table;
+                hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &color_table_buffer);
+                hr = r_d3d11_state->device->CreateShaderResourceView(color_table_buffer, NULL, &color_table_srv);
+            }
+            r_d3d11_state->device_context->VSSetShaderResources(2, 1, &color_table_srv);
+
+            free(uv_array);
+
             //@Todo Block Sorting
-            // Auto_Array<Block_ID*> opaque_blocks;
             R_Handle tex = atlas->tex_handle;
-            // if (tex == 0) {
+            if (tex == 0) {
                 tex = r_d3d11_state->fallback_tex;
-            // }
+            }
             R_D3D11_Tex2D *tex2d = (R_D3D11_Tex2D *)tex;
             r_d3d11_state->device_context->PSSetShaderResources(0, 1, &tex2d->view);
 
@@ -682,45 +738,29 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 chunk_world_position.z *= CHUNK_SIZE;
                 if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
                     chunk_uniform.world_position_offset = make_v4(0.0f, 0.0f, 0.0f, 0.0f);
-                    chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0}; // - player_position;
+                    chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
 
                     d3d11_render_chunk(chunk, vertices);
-
+                    
                     d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
                     ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
                     UINT stride = sizeof(u64), offset = 0;
                     r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
                     r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
+
+                    if (vertex_buffer) vertex_buffer->Release();
                 }
             }
 
-            vertices.clear();
-
-            // ID3D11Buffer *shader_geometry_buffer = NULL;
-            // ID3D11ShaderResourceView *geometry_srv = NULL;
-            // {
-            //     D3D11_BUFFER_DESC desc{};
-            //     desc.ByteWidth = (UINT)(geometry_count * sizeof(v3));
-            //     desc.Usage = D3D11_USAGE_DEFAULT;
-            //     desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
-            //     desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-            //     desc.StructureByteStride = sizeof(v3);
-            //     D3D11_SUBRESOURCE_DATA res{};
-            //     res.pSysMem = geometry_buffer;
-            //     hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &shader_geometry_buffer);
-
-            //     // D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{};
-            //     // srv_desc.Format = DXGI_FORMAT_UNKNOWN;
-            //     // srv_desc.ViewDimension = D3D11_SRV_VIEW_DIMENSION_BUFFer;
-            //     // srv_desc.Buffer.
-
-            //     hr = r_d3d11_state->device->CreateShaderResourceView(shader_geometry_buffer, NULL, &geometry_srv);
-            // }
-            // r_d3d11_state->device_context->VSSetShaderResources(0, 1, &geometry_srv);
-
             // r_d3d11_state->device_context->End(end_query);
 
+            vertices.clear();
+
+            uv_buffer->Release();
+            uv_srv->Release();
+            color_table_buffer->Release();
+            color_table_srv->Release();
             break;
         }
 

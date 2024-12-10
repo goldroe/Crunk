@@ -236,6 +236,14 @@ enum Face {
     FACE_COUNT
 };
 
+union RGBA {
+    u32 v;
+    struct {
+        u8 r, g, b, a;
+    };
+    u8 e[4];
+};
+
 #define MAX_PROFILES 32
 struct Profile_Scope {
     char *name;

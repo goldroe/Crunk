@@ -18,6 +18,7 @@
 #include "os/os.h"
 #include "path/path.h"
 
+#include "color_table.h"
 #include "atlas.h"
 #include "aabb.h"
 #include "camera.h"

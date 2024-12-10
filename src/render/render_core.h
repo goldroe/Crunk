@@ -56,12 +56,6 @@ struct R_3D_Vertex {
     v2 tex;
 };
 
-struct R_Block_Vertex {
-    u32 face_idx;
-    // u32 tex_idx;
-    // flags
-};
-
 enum R_Params_Kind {
     R_ParamsKind_Nil,
     R_ParamsKind_UI,
