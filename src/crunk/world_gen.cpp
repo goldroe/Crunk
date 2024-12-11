@@ -49,7 +49,7 @@ internal void generate_chunk(Chunk_Manager *manager, World_Generator *generator,
         for (int z = 0; z < CHUNK_SIZE; z++) {
             f32 height_map_value = *generator->height_noise_map->GetSlabPtr(x, z);
             int height = (int)floorf(CHUNK_SIZE * Abs(height_map_value));
-            height = Clamp(height, 12, 20);
+            height = Clamp(height, 4, 20);
 
             if (height < 8) {
                 for (int y = 0; y < height; y++) {

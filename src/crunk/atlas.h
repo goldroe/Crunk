@@ -9,15 +9,15 @@ struct Texture_Region {
     Texture_Atlas *atlas;
     String8 name;
     u32 atlas_index;
-    v2 offset;
-    v2 dim;
+    Vector2 offset;
+    Vector2 dim;
     u64 size;
     u8 *data;
 };
 
 struct Texture_Map {
     R_Handle texture;
-    v2_s32 size;
+    Vector2Int size;
     u8 *data;
 };
 
@@ -31,8 +31,8 @@ struct Texture_Region_Bucket {
 struct Texture_Atlas {
     R_Handle tex_handle;
 
-    v2_s32 dim;
-    v2_s32 region_dim;
+    Vector2Int dim;
+    Vector2Int region_dim;
 
     s32 texture_region_count;
     Texture_Region *texture_regions;

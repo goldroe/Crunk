@@ -33,13 +33,13 @@ struct Chunk_List {
 struct Chunk {
     Chunk *next;
     Chunk *prev;
-    v3_s32 position;
+    Vector3Int position;
     Block_ID *blocks;
 };
 
 struct Chunk_Manager {
     Arena *arena;
-    v3_s32 chunk_position;
+    Vector3Int chunk_position;
     Chunk_List free_chunks;
     Chunk_List loaded_chunks;
 };
@@ -84,8 +84,8 @@ struct Crafting_State {
 
 struct Player {
     Inventory *inventory;
-    v3 position;
-    v3 velocity;
+    Vector3 position;
+    Vector3 velocity;
     b32 grounded;
     b32 jumping;
     f32 jump_t;
@@ -93,11 +93,11 @@ struct Player {
 
 struct Game_State {
     Arena *arena;
-    v2_s32 client_dim;
+    Vector2Int client_dim;
     Camera camera;
 
     b32 raycast_hit;
-    v3 raycast_p;
+    Vector3 raycast_p;
 
     b32 creative_mode;
     Crafting_State *crafting_state;

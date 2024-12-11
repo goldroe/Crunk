@@ -16,7 +16,7 @@ internal void draw_begin(OS_Handle window_handle) {
     draw_bucket = push_array(draw_arena, Draw_Bucket, 1);
     *draw_bucket = {};
 
-    v2 window_dim = os_get_window_dim(window_handle);
+    Vector2 window_dim = os_get_window_dim(window_handle);
     draw_bucket->clip = make_rect(0.f, 0.f, window_dim.x, window_dim.y);
 }
 
@@ -40,7 +40,7 @@ internal void draw_set_texture(R_Handle tex) {
     draw_bucket->tex = tex;
 }
 
-internal void draw_set_xform(m4 xform) {
+internal void draw_set_xform(Matrix4 xform) {
     // R_Batch_Node *node = draw_bucket->batches.last;
     // if (node == NULL || node->batch.bytes > 0) {
     //     node = push_array(draw_arena, R_Batch_Node, 1);
@@ -92,7 +92,7 @@ internal void draw_batch_push_rect(R_Batch *batch, R_2D_Rect rect) {
     batch->bytes += sizeof(R_2D_Rect);
 }
 
-internal void draw_string_truncated(String8 string, Font *font, v4 color, v2 offset, Rect bounds) {
+internal void draw_string_truncated(String8 string, Font *font, Vector4 color, Vector2 offset, Rect bounds) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -110,7 +110,7 @@ internal void draw_string_truncated(String8 string, Font *font, v4 color, v2 off
         node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
     }
 
-    v2 cursor = offset;
+    Vector2 cursor = offset;
     for (u64 i = 0; i < string.count; i++) {
         u8 c = string.data[i];
         if (c == '\n') {
@@ -150,7 +150,7 @@ internal void draw_string_truncated(String8 string, Font *font, v4 color, v2 off
     }
 }
 
-internal void draw_text(String8 text, Font *font, v4 color, v2 offset) {
+internal void draw_text(String8 text, Font *font, Vector4 color, Vector2 offset) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -168,7 +168,7 @@ internal void draw_text(String8 text, Font *font, v4 color, v2 offset) {
         node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
     }
 
-    v2 cursor = offset;
+    Vector2 cursor = offset;
     for (u64 i = 0; i < text.count; i++) {
         u8 c = text.data[i];
         if (c == '\n') {
@@ -196,7 +196,7 @@ internal void draw_text(String8 text, Font *font, v4 color, v2 offset) {
     }
 }
 
-internal void draw_textf(Font *font, v4 color, v2 offset, const char *fmt, ...) {
+internal void draw_textf(Font *font, Vector4 color, Vector2 offset, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     String8 string = str8_pushfv(draw_temp_arena, fmt, args);
@@ -204,7 +204,7 @@ internal void draw_textf(Font *font, v4 color, v2 offset, const char *fmt, ...) 
     draw_text(string, font, color, offset);
 }
 
-internal void draw_ui_img(R_Handle img, Rect dst, Rect src, v4 color) {
+internal void draw_ui_img(R_Handle img, Rect dst, Rect src, Vector4 color) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -226,7 +226,7 @@ internal void draw_ui_img(R_Handle img, Rect dst, Rect src, v4 color) {
     draw_batch_push_rect(&node->batch, rect);
 }
 
-internal void draw_ui_rect(Rect dst, v4 color, f32 border_thickness) {
+internal void draw_ui_rect(Rect dst, Vector4 color, f32 border_thickness) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -250,7 +250,7 @@ internal void draw_ui_rect(Rect dst, v4 color, f32 border_thickness) {
     draw_batch_push_rect(&node->batch, rect);
 }
 
-internal void draw_ui_rect_outline(Rect rect, v4 color) {
+internal void draw_ui_rect_outline(Rect rect, Vector4 color) {
     draw_ui_rect(make_rect(rect.x0, rect.y0, rect_width(rect), 1), color, 0.f);
     draw_ui_rect(make_rect(rect.x0, rect.y0, 1, rect_height(rect)), color, 0.f);
     draw_ui_rect(make_rect(rect.x1 - 1, rect.y0, 1, rect_height(rect)), color, 0.f);
@@ -265,17 +265,17 @@ internal void draw_ui_box(UI_Box *box) {
         // draw_ui_rect_outline(box->rect, box->border_color);
     }
     if (box->flags & UI_BoxFlag_DrawHotEffects) {
-        v4 hot_color = box->hover_color;
+        Vector4 hot_color = box->hover_color;
         hot_color.w *= box->hot_t;
         draw_ui_rect(box->rect, hot_color, box->border_thickness);
     }
     // if (box->flags & UI_BoxFlag_DrawActiveEffects) {
-    //     v4 active_color = V4(1.f, 1.f, 1.f, 1.f);
+    //     Vector4 active_color = VECTOR4(1.f, 1.f, 1.f, 1.f);
     //     active_color.w *= box->hot_t;
     //     draw_ui_rect(box->rect, active_color);
     // }
     if (box->flags & UI_BoxFlag_DrawText) {
-        v2 text_position = ui_text_position(box);
+        Vector2 text_position = ui_text_position(box);
         text_position += box->view_offset;
         draw_text(box->string, box->font, box->text_color, text_position);
     }
@@ -295,7 +295,7 @@ internal void draw_ui_layout(UI_Box *box) {
     }
 }
 
-internal void draw_quad_pro(R_Handle img, Rect src, Rect dst, v2 origin, f32 rotation, v4 color) {
+internal void draw_quad_pro(R_Handle img, Rect src, Rect dst, Vector2 origin, f32 rotation, Vector4 color) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -313,16 +313,16 @@ internal void draw_quad_pro(R_Handle img, Rect src, Rect dst, v2 origin, f32 rot
         params_quad->sampler = draw_bucket->sampler;
     }
 
-    v2 tl = v2_zero();
-    v2 tr = v2_zero();
-    v2 bl = v2_zero();
-    v2 br = v2_zero();
+    Vector2 tl = Vector2_Zero;
+    Vector2 tr = Vector2_Zero;
+    Vector2 bl = Vector2_Zero;
+    Vector2 br = Vector2_Zero;
 
     if (rotation == 0.f) {
-        tl = make_v2(dst.x0, dst.y1);
-        tr = make_v2(dst.x1, dst.y1);
-        bl = make_v2(dst.x0, dst.y0);
-        br = make_v2(dst.x1, dst.y0);
+        tl = make_vector2(dst.x0, dst.y1);
+        tr = make_vector2(dst.x1, dst.y1);
+        bl = make_vector2(dst.x0, dst.y0);
+        br = make_vector2(dst.x1, dst.y0);
     } else {
         f32 S = sinf(DegToRad(rotation));
         f32 C = cosf(DegToRad(rotation));
@@ -356,10 +356,10 @@ internal void draw_quad_pro(R_Handle img, Rect src, Rect dst, v2 origin, f32 rot
 }
 
 internal void draw_quad(R_Handle img, Rect dst, Rect src) {
-    draw_quad_pro(img, src, dst, make_v2(0.f, 0.f), 0.f, make_v4(1.f, 1.f, 1.f, 1.f));
+    draw_quad_pro(img, src, dst, Vector2_Zero, 0.f, Vector4_Zero);
 }
 
-internal void draw_rect(Rect dst, v4 color) {
+internal void draw_rect(Rect dst, Vector4 color) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
     R_Batch_Node *node = draw_bucket->batches.last;
@@ -387,14 +387,14 @@ internal void draw_rect(Rect dst, v4 color) {
     draw_batch_push_vertex(&node->batch, br);
 }
 
-internal void draw_rect_outline(Rect rect, v4 color) {
+internal void draw_rect_outline(Rect rect, Vector4 color) {
     draw_rect(make_rect(rect.x0, rect.y0, rect_width(rect), 1), color);
     draw_rect(make_rect(rect.x0, rect.y0, 1, rect_height(rect)), color);
     draw_rect(make_rect(rect.x1 - 1, rect.y0, 1, rect_height(rect)), color);
     draw_rect(make_rect(rect.x0, rect.y1 - 1, rect_width(rect), 1), color);
 }
 
-internal void draw_chunks(Chunk_List chunks, v3 position, Frustum frustum, m4 projection, m4 view, Texture_Atlas *atlas, R_Rasterizer_Kind rasterizer) {
+internal void draw_chunks(Chunk_List chunks, Vector3 position, Frustum frustum, Matrix4 projection, Matrix4 view, Texture_Atlas *atlas, R_Rasterizer_Kind rasterizer) {
     R_Batch_Node *node = draw_bucket->batches.last;
     node = push_array(draw_arena, R_Batch_Node, 1);
     draw_push_batch_node(&draw_bucket->batches, node);
@@ -411,7 +411,7 @@ internal void draw_chunks(Chunk_List chunks, v3 position, Frustum frustum, m4 pr
     params_blocks->position = position;
 }
 
-internal void draw_3d_mesh_begin(m4 projection, m4 view, R_Handle tex, R_Rasterizer_Kind rasterizer) {
+internal void draw_3d_mesh_begin(Matrix4 projection, Matrix4 view, R_Handle tex, R_Rasterizer_Kind rasterizer) {
     R_Batch_Node *node = push_array(draw_arena, R_Batch_Node, 1);
     draw_push_batch_node(&draw_bucket->batches, node);
     node->batch.params.kind = R_ParamsKind_Mesh;
@@ -424,39 +424,39 @@ internal void draw_3d_mesh_begin(m4 projection, m4 view, R_Handle tex, R_Rasteri
     node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
 }
 
-inline internal void draw_3d_vertex(v3 pos, v4 color, v2 tex) {
+inline internal void draw_3d_vertex(Vector3 pos, Vector4 color, Vector2 tex) {
     R_Batch_Node *node = draw_bucket->batches.last;
     R_3D_Vertex vertex = r_3d_vertex(pos, color, tex);
     draw_batch_push_3d_vertex(&node->batch, vertex);
 }
 
-internal void draw_cube(v3 position, Rect src, v4 color, u8 face_mask) {
+internal void draw_cube(Vector3 position, Rect src, Vector4 color, u8 face_mask) {
 #if 0
     f32 S = 0.5f;
-    v3 p0 = make_v3(position.x - S, position.y - S, position.z + S);
-    v3 p1 = make_v3(position.x + S, position.y - S, position.z + S);
-    v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
-    v3 p3 = make_v3(position.x - S, position.y + S, position.z + S);
-    v3 p4 = make_v3(position.x - S, position.y - S, position.z - S);
-    v3 p5 = make_v3(position.x + S, position.y - S, position.z - S);
-    v3 p6 = make_v3(position.x + S, position.y + S, position.z - S);
-    v3 p7 = make_v3(position.x - S, position.y + S, position.z - S);
+    Vector3 p0 = make_vector3(position.x - S, position.y - S, position.z + S);
+    Vector3 p1 = make_vector3(position.x + S, position.y - S, position.z + S);
+    Vector3 p2 = make_vector3(position.x + S, position.y + S, position.z + S);
+    Vector3 p3 = make_vector3(position.x - S, position.y + S, position.z + S);
+    Vector3 p4 = make_vector3(position.x - S, position.y - S, position.z - S);
+    Vector3 p5 = make_vector3(position.x + S, position.y - S, position.z - S);
+    Vector3 p6 = make_vector3(position.x + S, position.y + S, position.z - S);
+    Vector3 p7 = make_vector3(position.x - S, position.y + S, position.z - S);
 #else
     f32 S = 1.0f;
-    v3 p0 = make_v3(position.x,     position.y, position.z + S);
-    v3 p1 = make_v3(position.x + S, position.y, position.z + S);
-    v3 p2 = make_v3(position.x + S, position.y + S, position.z + S);
-    v3 p3 = make_v3(position.x, position.y + S, position.z + S);
-    v3 p4 = make_v3(position.x, position.y, position.z);
-    v3 p5 = make_v3(position.x + S, position.y, position.z);
-    v3 p6 = make_v3(position.x + S, position.y + S, position.z);
-    v3 p7 = make_v3(position.x, position.y + S, position.z);
+    Vector3 p0 = make_vector3(position.x,     position.y, position.z + S);
+    Vector3 p1 = make_vector3(position.x + S, position.y, position.z + S);
+    Vector3 p2 = make_vector3(position.x + S, position.y + S, position.z + S);
+    Vector3 p3 = make_vector3(position.x, position.y + S, position.z + S);
+    Vector3 p4 = make_vector3(position.x, position.y, position.z);
+    Vector3 p5 = make_vector3(position.x + S, position.y, position.z);
+    Vector3 p6 = make_vector3(position.x + S, position.y + S, position.z);
+    Vector3 p7 = make_vector3(position.x, position.y + S, position.z);
 #endif
 
-    v2 tl = make_v2(src.x0, src.y0);
-    v2 br = make_v2(src.x1, src.y1);
-    v2 tr = make_v2(src.x1, src.y0);
-    v2 bl = make_v2(src.x0, src.y1);
+    Vector2 tl = make_vector2(src.x0, src.y0);
+    Vector2 br = make_vector2(src.x1, src.y1);
+    Vector2 tr = make_vector2(src.x1, src.y0);
+    Vector2 bl = make_vector2(src.x0, src.y1);
 
     if (!(face_mask & FACE_MASK_TOP)) {
         draw_3d_vertex(p1, color, bl);
@@ -496,8 +496,8 @@ internal void draw_cube(v3 position, Rect src, v4 color, u8 face_mask) {
     }
 }
 
-// internal void draw_plane_3d(Plane_3D plane, v4 color) {
-//     v2 src = v2_zero();
+// internal void draw_plane_3d(Plane_3D plane, Vector4 color) {
+//     Vector2 src = Vector2_Zero;
 //     // draw_3d_vertex(plane.v[0], color, src);
 //     // draw_3d_vertex(plane.v[1], color, src);
 //     // draw_3d_vertex(plane.v[2], color, src);

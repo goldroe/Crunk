@@ -9,7 +9,7 @@ struct R_D3D11_Tex2D {
     ID3D11Texture2D *texture;
     ID3D11ShaderResourceView *view;
     R_Tex2D_Format format;
-    v2_s32 size;
+    Vector2Int size;
 };
 
 enum D3D11_Shader_Kind {
@@ -30,25 +30,25 @@ enum D3D11_Uniform_Kind {
 };
 
 struct D3D11_Uniform_UI {
-    m4 xform;
+    Matrix4 xform;
 };
 
 struct D3D11_Uniform_Quad {
-    m4 xform;
+    Matrix4 xform;
 };
 
 struct D3D11_Uniform_Mesh {
-    m4 xform; 
+    Matrix4 xform; 
 };
 
 struct D3D11_Uniform_Blocks {
-    m4 view;
-    m4 projection;
+    Matrix4 view;
+    Matrix4 projection;
 };
 
 struct D3D11_Uniform_BlocksPerChunk {
-    v4_s32 world_position;
-    v4 world_position_offset;
+    Vector4Int world_position;
+    Vector4 world_position_offset;
 };
 
 struct R_D3D11_State {

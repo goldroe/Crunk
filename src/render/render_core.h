@@ -34,26 +34,26 @@ enum R_Tex2D_Format {
 };
 
 struct R_2D_Vertex {
-    v2 dst;
-    v2 src;
-    v4 color;
+    Vector2 dst;
+    Vector2 src;
+    Vector4 color;
     f32 omit_tex;
-    v3 padding_;
+    Vector3 padding_;
 };
 
 struct R_2D_Rect {
     Rect dst;
     Rect src;
-    v4 color;
+    Vector4 color;
     f32 border_thickness;
     f32 omit_tex;
     f32 _unused[2];
 };
 
 struct R_3D_Vertex {
-    v4 pos;
-    v4 color;
-    v2 tex;
+    Vector4 pos;
+    Vector4 color;
+    Vector2 tex;
 };
 
 enum R_Params_Kind {
@@ -66,32 +66,32 @@ enum R_Params_Kind {
 };
 
 struct R_Params_UI {
-    m4 xform;
+    Matrix4 xform;
     Rect clip;
     R_Handle tex;
 };
 
 struct R_Params_Quad {
-    m4 xform;
+    Matrix4 xform;
     R_Handle tex;
     R_Sampler_Kind sampler;
 };
 
 struct R_Params_Mesh {
-    m4 projection;
-    m4 view;
+    Matrix4 projection;
+    Matrix4 view;
     R_Handle tex;
     R_Rasterizer_Kind rasterizer;
 };
 
 struct R_Params_Blocks {
-    m4 projection;
-    m4 view;
+    Matrix4 projection;
+    Matrix4 view;
     Texture_Atlas *atlas;
     R_Rasterizer_Kind rasterizer;
     Chunk_List chunks;
     Frustum frustum;
-    v3 position;
+    Vector3 position;
 };
 
 struct R_Params {

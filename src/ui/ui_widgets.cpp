@@ -33,12 +33,12 @@ struct UI_Image_Draw_Data {
 
 internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_img) {
     UI_Image_Draw_Data *draw_data = (UI_Image_Draw_Data *)user_data;
-    v2 box_dim = rect_dim(box->rect);
-    v2 img_dim = box_dim * 0.9f;
-    v2_s32 tex_size = r_texture_size(draw_data->tex);
+    Vector2 box_dim = rect_dim(box->rect);
+    Vector2 img_dim = box_dim * 0.9f;
+    Vector2Int tex_size = r_texture_size(draw_data->tex);
     f32 img_ar = (f32)tex_size.x / (f32)tex_size.y;
     f32 box_ar = img_dim.x / img_dim.y;
-    v2 adjusted = img_dim;
+    Vector2 adjusted = img_dim;
     if (img_ar > box_ar) {
         adjusted.y = img_dim.x / img_ar;
     } else if (img_ar < box_ar) {
@@ -46,8 +46,8 @@ internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_img) {
     }
     Rect dst = make_rect(box->rect.x0, box->rect.y0, adjusted.x, adjusted.y);
     shift_rect(&dst, (box_dim.x - adjusted.x)/2.f, (box_dim.y - adjusted.y)/2.f);
-    draw_ui_rect(box->rect, make_v4(0.2f, 0.2f, 0.2f, 1.f), box->border_thickness);
-    draw_ui_img(draw_data->tex, dst, draw_data->src, make_v4(1.f, 1.f, 1.f, 1.f));
+    draw_ui_rect(box->rect, make_vector4(0.2f, 0.2f, 0.2f, 1.f), box->border_thickness);
+    draw_ui_img(draw_data->tex, dst, draw_data->src, make_vector4(1.f, 1.f, 1.f, 1.f));
 }
 
 internal UI_Signal ui_image(R_Handle img, String8 string) {
@@ -80,13 +80,13 @@ internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_line_edit) {
     UI_Line_Edit_Draw_Data *draw_data = (UI_Line_Edit_Draw_Data *)user_data;
     String8 edit_string = draw_data->edit_string;
     box->string = edit_string;
-    v2 text_position = ui_text_position(box);
+    Vector2 text_position = ui_text_position(box);
     text_position += box->view_offset;
     draw_text(edit_string, box->font, box->text_color, text_position);
 
     String8 string_before_cursor = edit_string;
     string_before_cursor.count = (u64)draw_data->cursor;
-    v2 c_pos = text_position + measure_string_size(string_before_cursor, box->font);
+    Vector2 c_pos = text_position + measure_string_size(string_before_cursor, box->font);
     Rect c_rect = make_rect(c_pos.x, c_pos.y, 2.f, box->font->glyph_height);
     if (ui_key_match(box->key, ui_state->focus_active_box_key)) {
         draw_ui_rect(c_rect, box->text_color, 1.f);
@@ -202,16 +202,16 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         }
 
         ui_set_next_pref_size(axis, ui_pct(1.f, 0.f));
-        ui_set_next_background_color(make_v4(.24f, .25f, .25f, 1.f));
+        ui_set_next_background_color(make_vector4(.24f, .25f, .25f, 1.f));
         ui_set_next_hover_cursor(OS_Cursor_Hand);
         ui_set_next_border_thickness(8.f);
         UI_Box *thumb_container = ui_make_box_from_stringf(UI_BoxFlag_Clickable | UI_BoxFlag_DrawBackground, "###thumb_container", name.data);
-        v2 thumb_container_dim = rect_dim(thumb_container->rect);
+        Vector2 thumb_container_dim = rect_dim(thumb_container->rect);
             
         UI_Signal scroll_sig = ui_signal_from_box(thumb_container);
 
         if (ui_clicked(scroll_sig)) {
-            v2 scroll_pos = ui_mouse() - thumb_container->rect.p0;
+            Vector2 scroll_pos = ui_mouse() - thumb_container->rect.p0;
             new_pt.idx = (s64)(scroll_pos[axis] / (thumb_container_dim[axis] / (f32)view_indices));
         }
 
@@ -220,13 +220,13 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
         ui_set_next_fixed_xy(axis, thumb_pos);
         ui_set_next_fixed_xy(flip_axis, 0.f);
         ui_set_next_pref_size(axis, ui_pct(scroll_ratio, 0.f));
-        ui_set_next_background_color(make_v4(.4f, .4f, .4f, 1.f));
+        ui_set_next_background_color(make_vector4(.4f, .4f, .4f, 1.f));
         ui_set_next_hover_cursor(OS_Cursor_Hand);
         ui_set_next_border_thickness(8.f);
         UI_Box *thumb_box = ui_make_box_from_stringf(UI_BoxFlag_Clickable | UI_BoxFlag_DrawBackground | UI_BoxFlag_DrawHotEffects | UI_BoxFlag_DrawActiveEffects, "###thumb", name.data);
         UI_Signal thumb_sig = ui_signal_from_box(thumb_box);
         if (ui_dragging(thumb_sig)) {
-            v2 scroll_pos = ui_mouse() - thumb_container->rect.p0;
+            Vector2 scroll_pos = ui_mouse() - thumb_container->rect.p0;
             new_pt.idx = (s64)(scroll_pos[axis] / (thumb_container_dim[axis] / (f32)view_indices));
         }
 
@@ -247,7 +247,7 @@ internal UI_Scroll_Pt ui_scroll_bar(String8 name, Axis2 axis, UI_Size flip_axis_
 
 #if 0
 internal void ui_slider(String8 name, f32 *value, f32 min, f32 max) {
-    v2 mouse = ui_mouse();
+    Vector2 mouse = ui_mouse();
     UI_Box *found = ui_find_box(hash);
     bool hot = false;
     if (found) {
@@ -289,10 +289,10 @@ internal void ui_slider(String8 name, f32 *value, f32 min, f32 max) {
     overlay_rect.x1 = overlay_rect.x0 + overlay_width;
     overlay_rect.y1 = box->rect.y1;
 
-    v4 bg_color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-    v4 overlay_color = V4(0.1f, 0.1f, 0.1f, 0.2f);
-    v4 fg_color = V4(0.0f, 0.0f, 0.0f, 1.0f);
-    v4 border_color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Vector4 bg_color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    Vector4 overlay_color = V4(0.1f, 0.1f, 0.1f, 0.2f);
+    Vector4 fg_color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Vector4 border_color = V4(0.0f, 0.0f, 0.0f, 1.0f);
 
     draw_ui_rect(box->rect, bg_color);
     draw_ui_rect_outline(box->rect, border_color);

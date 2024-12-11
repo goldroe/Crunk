@@ -3,10 +3,10 @@
 
 #include <math.h>
 #ifndef PI
-    #define PI    3.14159265358979323846f
+    #define PI     3.14159265358979323846f
 #endif
 #ifndef PI2
-    #define PI2   6.28318530717958647693f
+    #define PI2    6.28318530717958647693f
 #endif
 #ifndef PIDIV2
     #define PIDIV2 1.5707963267948966192f
@@ -18,144 +18,164 @@
 #define DegToRad(deg) ((deg)*PI/180.f)
 #define RadToDeg(rad) ((rad)*180.f/PI)
 
-inline internal v2 make_v2(f32 x, f32 y) { v2 result = {x, y}; return result; }
-inline internal v3 make_v3(f32 x, f32 y, f32 z) { v3 result = {x, y, z}; return result; }
-inline internal v4 make_v4(f32 x, f32 y, f32 z, f32 w) { v4 result = {x, y, z, w}; return result; }
+#define Vector2_Zero   make_vector2(0.0f, 0.0f)
+#define Vector2_One    make_vector2(1.0f, 1.0f)
+#define Vector2_Half   make_vector2(0.5f, 0.5f)
+#define Vector2_Left   make_vector2(-1.0f, 0.0f)
+#define Vector2_Right  make_vector2(1.0f, 0.0f)
+#define Vector2_Up     make_vector2(0.0f, 1.0f)
+#define Vector2_Down   make_vector2(0.0f, -1.0f)
 
-inline internal v2 v2_zero() { v2 result = {0, 0}; return result; }
-inline internal v3 v3_zero() { v3 result = {0, 0, 0}; return result; }
-inline internal v4 v4_zero() { v4 result = {0, 0, 0, 0}; return result; }
+#define Vector3_Zero   make_vector3(0.0f, 0.0f, 0.0f)
+#define Vector3_One    make_vector3(1.0f, 1.0f, 1.0f)
+#define Vector3_Half   make_vector3(0.5f, 0.5f, 0.5f)
+#define Vector3_Left   make_vector3(-1.0f, 0.0f, 0.0f)
+#define Vector3_Right  make_vector3(1.0f, 0.0f, 0.0f)
+#define Vector3_Up     make_vector3(0.0f, 1.0f, 0.0f)
+#define Vector3_Down   make_vector3(0.0f, -1.0f, 0.0f)
 
-inline internal m4 identity_m4();
-inline internal m4 mul_m4(m4 b, m4 a);
-inline internal v4 mul_m4_v4(m4 m, v4 v);
-inline internal m4 transpose_m4(m4 m);
-inline internal m4 translate_m4(f32 x, f32 y, f32 z);
-inline internal m4 inv_translate_m4(f32 x, f32 y, f32 z);
-inline internal m4 scale_m4(f32 x, f32 y, f32 z);
-inline internal m4 rotate_rh(f32 angle, v3 axis);
-inline internal m4 ortho_rh_zo(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far);
-inline internal m4 perspective_projection_rh(f32 fov, f32 aspect_ratio, f32 near, f32 far);
-inline internal m4 look_at_rh(v3 eye, v3 target, v3 up);
-inline internal m4 look_at_lh(v3 eye, v3 target, v3 up);
+#define Vector4_Zero   make_vector4(0.0f, 0.0f, 0.0f, 0.0f)
+#define Vector4_One    make_vector4(1.0f, 1.0f, 1.0f, 1.0f)
+#define Vector4_Half   make_vector4(0.5f, 0.5f, 0.5f, 0.5f)
+#define Vector4_Left   make_vector4(-1.0f, 0.0f, 0.0f, 0.0f)
+#define Vector4_Right  make_vector4(1.0f, 0.0f, 0.0f, 0.0f)
+#define Vector4_Up     make_vector4(0.0f, 1.0f, 0.0f, 0.0f)
+#define Vector4_Down   make_vector4(0.0f, -1.0f, 0.0f, 0.0f)
 
-inline internal v2 add_v2(v2 a, v2 b);
-inline internal v3 add_v3(v3 a, v3 b);
-inline internal v4 add_v4(v4 a, v4 b);
-inline internal v2 sub_v2(v2 a, v2 b);
-inline internal v3 sub_v3(v3 a, v3 b);
-inline internal v4 sub_v4(v4 a, v4 b);
-inline internal v2 negate_v2(v2 v);
-inline internal v3 negate_v3(v3 v);
-inline internal v4 negate_v4(v4 v);
+inline internal Vector2 make_vector2(f32 x, f32 y) { Vector2 result = {x, y}; return result; }
+inline internal Vector3 make_vector3(f32 x, f32 y, f32 z) { Vector3 result = {x, y, z}; return result; }
+inline internal Vector4 make_vector4(f32 x, f32 y, f32 z, f32 w) { Vector4 result = {x, y, z, w}; return result; }
 
-inline internal v2 mul_v2_s(v2 v, f32 s);
-inline internal v3 mul_v3_s(v3 v, f32 s);
-inline internal v4 mul_v4_s(v4 v, f32 s);
-inline internal v2 div_v2_s(v2 v, f32 s);
-inline internal v3 div_v3_s(v3 v, f32 s);
-inline internal v4 div_v4_s(v4 v, f32 s);
+inline internal Matrix4 identity_matrix4();
+inline internal Matrix4 mul_matrix4(Matrix4 b, Matrix4 a);
+inline internal Vector4 mul_matrix4_vector4(Matrix4 m, Vector4 v);
+inline internal Matrix4 transpose_matrix4(Matrix4 m);
+inline internal Matrix4 translate_matrix4(f32 x, f32 y, f32 z);
+inline internal Matrix4 inverse_translate_matrix4(f32 x, f32 y, f32 z);
+inline internal Matrix4 scale_matrix4(f32 x, f32 y, f32 z);
+inline internal Matrix4 rotate_rh(f32 angle, Vector3 axis);
+inline internal Matrix4 ortho_rh_zo(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far);
+inline internal Matrix4 perspective_projection_rh(f32 fov, f32 aspect_ratio, f32 near, f32 far);
+inline internal Matrix4 look_at_rh(Vector3 eye, Vector3 target, Vector3 up);
+inline internal Matrix4 look_at_lh(Vector3 eye, Vector3 target, Vector3 up);
 
-inline internal f32 length_v2(v2 v);
-inline internal f32 length_v3(v3 v);
-inline internal f32 length_v4(v4 v);
-inline internal f32 length2_v2(v2 v);
-inline internal f32 length2_v3(v3 v);
-inline internal f32 length2_v4(v4 v);
-inline internal v2 normalize_v2(v2 v);
-inline internal v3 normalize_v3(v3 v);
-inline internal v4 normalize_v4(v4 v);
+inline internal Vector2 add_vector2(Vector2 a, Vector2 b);
+inline internal Vector3 add_vector3(Vector3 a, Vector3 b);
+inline internal Vector4 add_vector4(Vector4 a, Vector4 b);
+inline internal Vector2 sub_vector2(Vector2 a, Vector2 b);
+inline internal Vector3 sub_vector3(Vector3 a, Vector3 b);
+inline internal Vector4 sub_vector4(Vector4 a, Vector4 b);
+inline internal Vector2 negate_vector2(Vector2 v);
+inline internal Vector3 negate_vector3(Vector3 v);
+inline internal Vector4 negate_vector4(Vector4 v);
+
+inline internal Vector2 mul_vector2f(Vector2 v, f32 s);
+inline internal Vector3 mul_vector3f(Vector3 v, f32 s);
+inline internal Vector4 mul_vector4f(Vector4 v, f32 s);
+inline internal Vector2 div_vector2f(Vector2 v, f32 s);
+inline internal Vector3 div_vector3f(Vector3 v, f32 s);
+inline internal Vector4 div_vector4f(Vector4 v, f32 s);
+
+inline internal f32 length_vector2(Vector2 v);
+inline internal f32 length_vector3(Vector3 v);
+inline internal f32 length_vector4(Vector4 v);
+inline internal f32 length2_vector2(Vector2 v);
+inline internal f32 length2_vector3(Vector3 v);
+inline internal f32 length2_vector4(Vector4 v);
+inline internal Vector2 normalize_vector2(Vector2 v);
+inline internal Vector3 normalize_vector3(Vector3 v);
+inline internal Vector4 normalize_vector4(Vector4 v);
 
 inline internal f32 lerp(f32 a, f32 b, f32 t);
-inline internal v2 lerp_v2(v2 a, v2 b, f32 t);
-inline internal v3 lerp_v3(v3 a, v3 b, f32 t);
-inline internal v4 lerp_v4(v4 a, v4 b, f32 t);
+inline internal Vector2 lerp_vector2(Vector2 a, Vector2 b, f32 t);
+inline internal Vector3 lerp_vector3(Vector3 a, Vector3 b, f32 t);
+inline internal Vector4 lerp_vector4(Vector4 a, Vector4 b, f32 t);
 
-inline internal f32 dot_v2(v2 a, v2 b);
-inline internal f32 dot_v3(v3 a, v3 b);
-inline internal f32 dot_v4(v4 a, v4 b);
+inline internal f32 dot_vector2(Vector2 a, Vector2 b);
+inline internal f32 dot_vector3(Vector3 a, Vector3 b);
+inline internal f32 dot_vector4(Vector4 a, Vector4 b);
 
-inline internal v3 cross_v3(v3 a, v3 b);
+inline internal Vector3 cross_vector3(Vector3 a, Vector3 b);
 
 //@Note Function overloads
 #ifdef __cplusplus
-inline internal v2 normalize(v2 v);
-inline internal v3 normalize(v3 v);
-inline internal v4 normalize(v4 v);
-inline internal f32 dot(v2 a, v2 b);
-inline internal f32 dot(v3 a, v3 b);
-inline internal f32 dot(v4 a, v4 b);
-inline internal v2 lerp(v2 a, v2 b, f32 t);
-inline internal v3 lerp(v3 a, v3 b, f32 t);
-inline internal v4 lerp(v4 a, v4 b, f32 t);
-inline internal f32 length(v2 v);
-inline internal f32 length(v3 v);
-inline internal f32 length(v4 v);
-inline internal f32 length2(v2 v);
-inline internal f32 length2(v3 v);
-inline internal f32 length2(v4 v);
+inline internal Vector2 normalize(Vector2 v);
+inline internal Vector3 normalize(Vector3 v);
+inline internal Vector4 normalize(Vector4 v);
+inline internal f32 dot(Vector2 a, Vector2 b);
+inline internal f32 dot(Vector3 a, Vector3 b);
+inline internal f32 dot(Vector4 a, Vector4 b);
+inline internal Vector2 lerp(Vector2 a, Vector2 b, f32 t);
+inline internal Vector3 lerp(Vector3 a, Vector3 b, f32 t);
+inline internal Vector4 lerp(Vector4 a, Vector4 b, f32 t);
+inline internal f32 length(Vector2 v);
+inline internal f32 length(Vector3 v);
+inline internal f32 length(Vector4 v);
+inline internal f32 length2(Vector2 v);
+inline internal f32 length2(Vector3 v);
+inline internal f32 length2(Vector4 v);
 
 
-inline internal v2_s32 add_v2_s32(v2_s32 a, v2_s32 b);
-inline internal v3_s32 add_v3_s32(v3_s32 a, v3_s32 b);
-inline internal v2_s32 sub_v2_s32(v2_s32 a, v2_s32 b);
-inline internal v3_s32 sub_v3_s32(v3_s32 a, v3_s32 b);
+inline internal Vector2Int add_vector2int(Vector2Int a, Vector2Int b);
+inline internal Vector3Int add_vector3int(Vector3Int a, Vector3Int b);
+inline internal Vector2Int sub_vector2int(Vector2Int a, Vector2Int b);
+inline internal Vector3Int sub_vector3int(Vector3Int a, Vector3Int b);
 
 //@Note Operator overloads
-inline v2_s32 operator+(v2_s32 a, v2_s32 b) {v2_s32 result = add_v2_s32(a, b); return result;}
-inline v3_s32 operator+(v3_s32 a, v3_s32 b) {v3_s32 result = add_v3_s32(a, b); return result;}
-inline v2_s32 operator-(v2_s32 a, v2_s32 b) {v2_s32 result = sub_v2_s32(a, b); return result;}
-inline v3_s32 operator-(v3_s32 a, v3_s32 b) {v3_s32 result = sub_v3_s32(a, b); return result;}
+inline Vector2Int operator+(Vector2Int a, Vector2Int b) {Vector2Int result = add_vector2int(a, b); return result;}
+inline Vector3Int operator+(Vector3Int a, Vector3Int b) {Vector3Int result = add_vector3int(a, b); return result;}
+inline Vector2Int operator-(Vector2Int a, Vector2Int b) {Vector2Int result = sub_vector2int(a, b); return result;}
+inline Vector3Int operator-(Vector3Int a, Vector3Int b) {Vector3Int result = sub_vector3int(a, b); return result;}
 
-inline v2 operator+(v2 a, v2 b) {v2 result = add_v2(a, b); return result;}
-inline v3 operator+(v3 a, v3 b) {v3 result = add_v3(a, b); return result;}
-inline v4 operator+(v4 a, v4 b) {v4 result = add_v4(a, b); return result;}
+inline Vector2 operator+(Vector2 a, Vector2 b) {Vector2 result = add_vector2(a, b); return result;}
+inline Vector3 operator+(Vector3 a, Vector3 b) {Vector3 result = add_vector3(a, b); return result;}
+inline Vector4 operator+(Vector4 a, Vector4 b) {Vector4 result = add_vector4(a, b); return result;}
 
-inline v2 operator-(v2 v) {v2 result = negate_v2(v); return result;}
-inline v3 operator-(v3 v) {v3 result = negate_v3(v); return result;}
-inline v4 operator-(v4 v) {v4 result = negate_v4(v); return result;}
+inline Vector2 operator-(Vector2 v) {Vector2 result = negate_vector2(v); return result;}
+inline Vector3 operator-(Vector3 v) {Vector3 result = negate_vector3(v); return result;}
+inline Vector4 operator-(Vector4 v) {Vector4 result = negate_vector4(v); return result;}
 
-inline v2 operator-(v2 a, v2 b) {v2 result = sub_v2(a, b); return result;}
-inline v3 operator-(v3 a, v3 b) {v3 result = sub_v3(a, b); return result;}
-inline v4 operator-(v4 a, v4 b) {v4 result = sub_v4(a, b); return result;}
+inline Vector2 operator-(Vector2 a, Vector2 b) {Vector2 result = sub_vector2(a, b); return result;}
+inline Vector3 operator-(Vector3 a, Vector3 b) {Vector3 result = sub_vector3(a, b); return result;}
+inline Vector4 operator-(Vector4 a, Vector4 b) {Vector4 result = sub_vector4(a, b); return result;}
 
-inline v2 operator+=(v2 &a, v2 b) {a = a + b; return a;}
-inline v3 operator+=(v3 &a, v3 b) {a = a + b; return a;}
-inline v4 operator+=(v4 &a, v4 b) {a = a + b; return a;}
+inline Vector2 operator+=(Vector2 &a, Vector2 b) {a = a + b; return a;}
+inline Vector3 operator+=(Vector3 &a, Vector3 b) {a = a + b; return a;}
+inline Vector4 operator+=(Vector4 &a, Vector4 b) {a = a + b; return a;}
 
-inline v2 operator-=(v2 &a, v2 b) {a = a - b; return a;}
-inline v3 operator-=(v3 &a, v3 b) {a = a - b; return a;}
-inline v4 operator-=(v4 &a, v4 b) {a = a - b; return a;}
+inline Vector2 operator-=(Vector2 &a, Vector2 b) {a = a - b; return a;}
+inline Vector3 operator-=(Vector3 &a, Vector3 b) {a = a - b; return a;}
+inline Vector4 operator-=(Vector4 &a, Vector4 b) {a = a - b; return a;}
 
-inline v2 operator*(v2 v, f32 s) {v2 result = mul_v2_s(v, s); return result;}
-inline v3 operator*(v3 v, f32 s) {v3 result = mul_v3_s(v, s); return result;}
-inline v4 operator*(v4 v, f32 s) {v4 result = mul_v4_s(v, s); return result;}
+inline Vector2 operator*(Vector2 v, f32 s) {Vector2 result = mul_vector2f(v, s); return result;}
+inline Vector3 operator*(Vector3 v, f32 s) {Vector3 result = mul_vector3f(v, s); return result;}
+inline Vector4 operator*(Vector4 v, f32 s) {Vector4 result = mul_vector4f(v, s); return result;}
 
-inline v2 operator*(f32 s, v2 v) {v2 result = mul_v2_s(v, s); return result;}
-inline v3 operator*(f32 s, v3 v) {v3 result = mul_v3_s(v, s); return result;}
-inline v4 operator*(f32 s, v4 v) {v4 result = mul_v4_s(v, s); return result;}
+inline Vector2 operator*(f32 s, Vector2 v) {Vector2 result = mul_vector2f(v, s); return result;}
+inline Vector3 operator*(f32 s, Vector3 v) {Vector3 result = mul_vector3f(v, s); return result;}
+inline Vector4 operator*(f32 s, Vector4 v) {Vector4 result = mul_vector4f(v, s); return result;}
 
-inline v2 operator/(v2 v, f32 s) {v2 result = div_v2_s(v, s); return result;}
-inline v3 operator/(v3 v, f32 s) {v3 result = div_v3_s(v, s); return result;}
-inline v4 operator/(v4 v, f32 s) {v4 result = div_v4_s(v, s); return result;}
+inline Vector2 operator/(Vector2 v, f32 s) {Vector2 result = div_vector2f(v, s); return result;}
+inline Vector3 operator/(Vector3 v, f32 s) {Vector3 result = div_vector3f(v, s); return result;}
+inline Vector4 operator/(Vector4 v, f32 s) {Vector4 result = div_vector4f(v, s); return result;}
 
-inline v2 operator*=(v2 &v, f32 s) {v = v * s; return v;}
-inline v3 operator*=(v3 &v, f32 s) {v = v * s; return v;}
-inline v4 operator*=(v4 &v, f32 s) {v = v * s; return v;}
+inline Vector2 operator*=(Vector2 &v, f32 s) {v = v * s; return v;}
+inline Vector3 operator*=(Vector3 &v, f32 s) {v = v * s; return v;}
+inline Vector4 operator*=(Vector4 &v, f32 s) {v = v * s; return v;}
 
-inline v2 operator/=(v2 &v, f32 s) {v = v / s; return v;}
-inline v3 operator/=(v3 &v, f32 s) {v = v / s; return v;}
-inline v4 operator/=(v4 &v, f32 s) {v = v / s; return v;}
+inline Vector2 operator/=(Vector2 &v, f32 s) {v = v / s; return v;}
+inline Vector3 operator/=(Vector3 &v, f32 s) {v = v / s; return v;}
+inline Vector4 operator/=(Vector4 &v, f32 s) {v = v / s; return v;}
 
-inline bool operator==(v2 a, v2 b) {bool result = a.x == b.x && a.y == b.y; return result;}
-inline bool operator==(v3 a, v3 b) {bool result = a.x == b.x && a.y == b.y && a.z == b.z; return result;}
-inline bool operator==(v4 a, v4 b) {bool result = a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w; return result;}
+inline bool operator==(Vector2 a, Vector2 b) {bool result = a.x == b.x && a.y == b.y; return result;}
+inline bool operator==(Vector3 a, Vector3 b) {bool result = a.x == b.x && a.y == b.y && a.z == b.z; return result;}
+inline bool operator==(Vector4 a, Vector4 b) {bool result = a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w; return result;}
 
-inline bool operator!=(v2 a, v2 b) {return !(a == b);}
-inline bool operator!=(v3 a, v3 b) {return !(a == b);}
-inline bool operator!=(v4 a, v4 b) {return !(a == b);}
+inline bool operator!=(Vector2 a, Vector2 b) {return !(a == b);}
+inline bool operator!=(Vector3 a, Vector3 b) {return !(a == b);}
+inline bool operator!=(Vector4 a, Vector4 b) {return !(a == b);}
 
-inline m4 operator*(m4 a, m4 b) {m4 result = mul_m4(a, b); return result;}
+inline Matrix4 operator*(Matrix4 a, Matrix4 b) {Matrix4 result = mul_matrix4(a, b); return result;}
 #endif // __cplusplus
 
 #endif // BASE_MATH_H

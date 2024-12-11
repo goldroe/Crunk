@@ -89,7 +89,6 @@ void AssertMessage(const char *message, const char *file, int line) {
 #define Swap(T,a,b) do{T __t = a; a = b; b = __t;}while(0)
 #define quick_sort(Arr,T,N,Func) qsort((Arr), (N), sizeof(T), (Func))
 
-
 #include <stdint.h>
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -136,54 +135,77 @@ union Rng_S64 {
     s64 v[2];
 };
 
-union v2_s32 {
+union Vector2Int {
     struct {
-        s32 x;
-        s32 y;
+        int x;
+        int y;
     };
-    s32 e[2];
-    s32& operator[](int index) {
+    int e[2];
+    int& operator[](int index) {
         return e[index];
     }
 };
 
-union v3_s32 {
+union Vector2Int64 {
     struct {
-        s32 x;
-        s32 y;
-        s32 z;
+        s64 x;
+        s64 y;
     };
-    s32 e[3];
-    s32& operator[](int index) {
+    s64 e[2];
+    s64& operator[](int index) {
         return e[index];
     }
 };
 
-union v4_s32 {
+union Vector3Int {
     struct {
-        s32 x;
-        s32 y;
-        s32 z;
-        s32 w;
+        int x;
+        int y;
+        int z;
     };
-    s32 e[4];
-    s32& operator[](int index) {
+    int e[3];
+    int& operator[](int index) {
         return e[index];
     }
 };
 
-union v2 {
-    f32 e[2];
+union Vector3Int64 {
+    struct {
+        s64 x;
+        s64 y;
+        s64 z;
+    };
+    s64 e[3];
+    s64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union Vector4Int {
+    struct {
+        int x;
+        int y;
+        int z;
+        int w;
+    };
+    int e[4];
+    int& operator[](int index) {
+        return e[index];
+    }
+};
+
+union Vector2 {
     struct {
         f32 x, y;
     };
+    f32 e[2];
 
     f32& operator[](int index) {
         return e[index];
     }
 };
 
-union v3 {
+union Vector3 {
     struct {
         f32 x, y, z;
     };
@@ -194,7 +216,7 @@ union v3 {
     }
 };
 
-union v4 {
+union Vector4 {
     struct {
         f32 x, y, z, w;
     };
@@ -205,7 +227,7 @@ union v4 {
     }
 };
 
-union m4 {
+union Matrix4 {
     struct {
         f32 _00, _01, _02, _03;
         f32 _10, _11, _12, _13;
@@ -213,7 +235,7 @@ union m4 {
         f32 _30, _31, _32, _33;
     };
     f32 e[16];
-    v4 columns[4];
+    Vector4 columns[4];
 };
 
 union Rect {
@@ -221,8 +243,8 @@ union Rect {
         f32 x0, y0, x1, y1;
     };
     struct {
-        v2 p0;
-        v2 p1;
+        Vector2 p0;
+        Vector2 p1;
     };
 };
 

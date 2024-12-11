@@ -1,31 +1,31 @@
 
-inline internal bool point_behind_plane(v3 p, v4 plane) {
-    f32 dp = dot(make_v3(plane.x, plane.y, plane.z), p);
+inline internal bool point_behind_plane(Vector3 p, Vector4 plane) {
+    f32 dp = dot(make_vector3(plane.x, plane.y, plane.z), p);
     return dp < -plane.w;
 }
 
 internal bool aabb_in_frustum(Frustum frustum, AABB box) {
     for (int i = 0; i < 6; i++) {
-        v4 plane = frustum.planes[i];
+        Vector4 plane = frustum.planes[i];
         int out = 0;
-        out += point_behind_plane(make_v3(box.x0, box.y0, box.z0), plane);
-        out += point_behind_plane(make_v3(box.x1, box.y0, box.z0), plane);
-        out += point_behind_plane(make_v3(box.x1, box.y1, box.z0), plane);
-        out += point_behind_plane(make_v3(box.x0, box.y1, box.z0), plane);
-        out += point_behind_plane(make_v3(box.x0, box.y0, box.z1), plane);
-        out += point_behind_plane(make_v3(box.x1, box.y0, box.z1), plane);
-        out += point_behind_plane(make_v3(box.x1, box.y1, box.z1), plane);
-        out += point_behind_plane(make_v3(box.x0, box.y1, box.z1), plane);
+        out += point_behind_plane(make_vector3(box.x0, box.y0, box.z0), plane);
+        out += point_behind_plane(make_vector3(box.x1, box.y0, box.z0), plane);
+        out += point_behind_plane(make_vector3(box.x1, box.y1, box.z0), plane);
+        out += point_behind_plane(make_vector3(box.x0, box.y1, box.z0), plane);
+        out += point_behind_plane(make_vector3(box.x0, box.y0, box.z1), plane);
+        out += point_behind_plane(make_vector3(box.x1, box.y0, box.z1), plane);
+        out += point_behind_plane(make_vector3(box.x1, box.y1, box.z1), plane);
+        out += point_behind_plane(make_vector3(box.x0, box.y1, box.z1), plane);
         if (out == 8) return false;
 	}
     return true;
 }
 
 internal Frustum make_frustum(Camera camera, f32 near_z, f32 far_z) {
-    m4 projection = perspective_projection_rh(DegToRad(camera.fov), camera.aspect, near_z, far_z);
-    m4 view = look_at_rh(camera.position, camera.position + camera.forward, camera.up);
-    m4 mvp = projection * view;
-    mvp = transpose_m4(mvp);
+    Matrix4 projection = perspective_projection_rh(DegToRad(camera.fov), camera.aspect, near_z, far_z);
+    Matrix4 view = look_at_rh(camera.position, camera.position + camera.forward, camera.up);
+    Matrix4 mvp = projection * view;
+    mvp = transpose_matrix4(mvp);
 
     Frustum frustum = {};
     frustum.planes[0].x = mvp.columns[0][0] + mvp.columns[3][0];

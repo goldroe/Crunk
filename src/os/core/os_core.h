@@ -144,8 +144,8 @@ struct OS_Event {
     OS_Event_Flags flags;
     OS_Key key;
     String8 text;
-    v2_s32 delta;
-    v2_s32 pos;
+    Vector2Int delta;
+    Vector2Int pos;
 };
 
 struct OS_Event_List {
@@ -184,7 +184,7 @@ struct OS_File_List {
     int count;
 };
 
-internal v2 os_get_window_dim(OS_Handle window_handle);
+internal Vector2 os_get_window_dim(OS_Handle window_handle);
 internal void os_quit_application(int exit_code);
 
 internal OS_Handle os_find_first_file(Arena *arena, String8 path, OS_File *file);
