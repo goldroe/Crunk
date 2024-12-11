@@ -62,9 +62,8 @@ float4 get_color(uint col_id) {
     color.g = ((C >> 16) & 0xFF) / 255.0f;
     color.b = ((C >> 8)  & 0xFF) / 255.0f;
     color.a = (C & 0xFF) / 255.0f;
-    // float4 color = float4(position.x / 255.0f, position.y / 255.0f, position.z / 255.0f, 1.0);
-    return color;}
-
+    return color;
+}
 
 Vertex_Output vs_main(Vertex_Input input) {
     Vertex_Output output;
@@ -73,9 +72,9 @@ Vertex_Output vs_main(Vertex_Input input) {
     uint uv_index = input.data.y & 0xFF;
 
     float4x4 chunk_trans = {
-        1, 0, 0, world_position.x,
-        0, 1, 0, world_position.y,
-        0, 0, 1, world_position.z,
+        1, 0, 0, world_position.x - world_position_offset.x,
+        0, 1, 0, world_position.y - world_position_offset.y,
+        0, 0, 1, world_position.z - world_position_offset.z,
         0, 0, 0, 1
     };
     float4x4 mvp = mul(projection, view);
@@ -88,6 +87,7 @@ Vertex_Output vs_main(Vertex_Input input) {
 }
 
 float4 ps_main(Vertex_Output input) : SV_TARGET {
-    float4 final_color = tex.Sample(tex_sampler, input.src) * input.color;
+    float4 diffuse_color = tex.Sample(tex_sampler, input.src);
+    float4 final_color = diffuse_color * input.color;
     return final_color;
 }

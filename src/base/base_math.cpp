@@ -340,6 +340,15 @@ inline internal Vector3Int add_vector3int(Vector3Int a, Vector3Int b) {
     return result;
 }
 
+inline internal Vector4Int add_vector4int(Vector4Int a, Vector4Int b) {
+    Vector4Int result;
+    result.x = a.x + b.x;
+    result.y = a.y + b.y;
+    result.z = a.z + b.z;
+    result.w = a.w + b.w;
+    return result;
+}
+
 inline internal Vector2Int sub_vector2int(Vector2Int a, Vector2Int b) {
     Vector2Int result;
     result.x = a.x - b.x;
@@ -352,6 +361,15 @@ inline internal Vector3Int sub_vector3int(Vector3Int a, Vector3Int b) {
     result.x = a.x - b.x;
     result.y = a.y - b.y;
     result.z = a.z - b.z;
+    return result;
+}
+
+inline internal Vector4Int sub_vector4int(Vector4Int a, Vector4Int b) {
+    Vector4Int result;
+    result.x = a.x - b.x;
+    result.y = a.y - b.y;
+    result.z = a.z - b.z;
+    result.w = a.w - b.w;
     return result;
 }
 

@@ -279,5 +279,5 @@ struct Profile_Manager {
 };
 #define ProfileScope(Name) DeferLoop(profile_scope_begin(Name), profile_scope_end())
 
-
 #endif // BASE_CORE_H
+

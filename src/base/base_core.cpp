@@ -14,9 +14,14 @@ internal void profile_scope_end() {
 }
 
 internal Vector2Int make_vector2int(s32 x, s32 y) {Vector2Int result; result.x = x; result.y = y; return result;}
+internal Vector3Int make_vector3int(s32 x, s32 y, s32 z) {Vector3Int result; result.x = x; result.y = y; result.z = z; return result;}
+internal Vector4Int make_vector4int(s32 x, s32 y, s32 z, s32 w) {Vector4Int result; result.x = x; result.y = y; result.z = z; result.w = w; return result;}
+
 internal Vector2    vector2_from_vector2int(Vector2Int v) {Vector2 result; result.x = (f32)v.x; result.y = (f32)v.y; return result;}
 internal Vector2Int vector2int_from_vector2(Vector2 v) {Vector2Int result; result.x = (s32)v.x; result.y = (s32)v.y; return result;}
-internal Vector3Int make_vector3int(s32 x, s32 y, s32 z) {Vector3Int result; result.x = x; result.y = y; result.z = z; return result;}
+
+internal Vector3    vector3_from_vector3int(Vector3Int v) {Vector3 result; result.x = (f32)v.x; result.y = (f32)v.y; result.z = (f32)v.z; return result;}
+internal Vector3Int vector3int_from_vector3(Vector3 v) {Vector3Int result; result.x = (s32)v.x; result.y = (s32)v.y; result.z = (s32)v.z; return result;}
 
 internal Rng_U64 rng_u64(u64 min, u64 max) { if (min > max) Swap(u64, min, max); Rng_U64 result; result.min = min; result.max = max; return result; }
 internal u64 rng_u64_len(Rng_U64 rng) { u64 result = rng.max - rng.min; return result; }
