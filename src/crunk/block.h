@@ -58,5 +58,7 @@ struct Block {
 
 inline internal bool block_active(Block_ID *block);
 inline internal Block *get_basic_block(Block_ID block);
+inline internal bool block_is_opaque(Block *block);
+inline internal bool block_is_opaque(Block_ID *block);
 
 #endif // BLOCK_H

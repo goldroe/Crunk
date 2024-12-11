@@ -5,6 +5,9 @@
 
 global R_D3D11_State *r_d3d11_state;
 
+global ID3D11ShaderResourceView *g_atlas_uv_buffer_res;
+global ID3D11ShaderResourceView *g_block_color_table_res;
+
 global const char *r_d3d11_g_shader_rect =
     "cbuffer Constants : register(b0) {\n"
     "    matrix xform;\n"
@@ -479,14 +482,15 @@ internal void d3d11_resize_render_target_view(UINT width, UINT height) {
     r_d3d11_state->device_context->OMSetRenderTargets(1, &r_d3d11_state->render_target_view, r_d3d11_state->depth_stencil_view);
 }
 
+
 inline internal u8 get_chunk_face_mask(Chunk *chunk, int x, int y, int z) {
     u8 face_mask = 0;
-    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_active(BLOCK_AT(chunk, x, y + 1, z));
-    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_active(BLOCK_AT(chunk, x, y - 1, z));
-    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_active(BLOCK_AT(chunk, x, y, z + 1));
-    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_active(BLOCK_AT(chunk, x, y, z - 1));
-    if (x > 0)              face_mask |= FACE_MASK_WEST*block_active(BLOCK_AT(chunk, x - 1, y, z));
-    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_active(BLOCK_AT(chunk, x + 1, y, z));
+    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_is_opaque(BLOCK_AT(chunk, x, y + 1, z));
+    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_is_opaque(BLOCK_AT(chunk, x, y - 1, z));
+    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_is_opaque(BLOCK_AT(chunk, x, y, z + 1));
+    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_is_opaque(BLOCK_AT(chunk, x, y, z - 1));
+    if (x > 0)              face_mask |= FACE_MASK_WEST*block_is_opaque(BLOCK_AT(chunk, x - 1, y, z));
+    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_is_opaque(BLOCK_AT(chunk, x + 1, y, z));
     return face_mask;
 }
 
@@ -499,15 +503,76 @@ inline internal u64 make_block_vertex_data(Face face, u8 x, u8 y, u8 z, u8 tex, 
     return result;
 }
 
-internal void d3d11_render_chunk(Chunk *chunk, Auto_Array<u64> &vertices) {
+inline internal v3 v3_from_block_data(u64 data) {
+    v3 result;
+    result.x = (f32)((data >> 8)  & 0xFF);
+    result.y = (f32)((data >> 16) & 0xFF);
+    result.z = (f32)((data >> 24) & 0xFF);
+    return result;
+}
+
+internal void d3d11_upload_block_atlas(Texture_Atlas *atlas) {
+    HRESULT hr = S_OK;
+    //@Note UV buffer
+    v2 *uv_array = (v2 *)malloc(4 * atlas->texture_region_count * sizeof(v2));
+    int region_count = 0;
+    for (int region_bucket_idx = 0; region_bucket_idx < atlas->region_hash_table_size; region_bucket_idx++) {
+        Texture_Region_Bucket *bucket = &atlas->region_hash_table[region_bucket_idx];
+        for (Texture_Region *region = bucket->first; region; region = region->hash_next) {
+            int region_idx = region->atlas_index;
+            uv_array[region_idx * 4 + 0] = region->offset + make_v2(0.0f, region->dim.y);
+            uv_array[region_idx * 4 + 1] = region->offset + make_v2(region->dim.x, region->dim.y);
+            uv_array[region_idx * 4 + 2] = region->offset + make_v2(region->dim.x, 0.0f);
+            uv_array[region_idx * 4 + 3] = region->offset + make_v2(0.0f, 0.0f);
+        }
+    }
+    ID3D11Buffer *uv_buffer = NULL;
+    ID3D11ShaderResourceView *uv_srv = NULL;
+    {
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = (UINT)(4 * atlas->texture_region_count * sizeof(v2));
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
+        desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+        desc.StructureByteStride = sizeof(v2);
+        D3D11_SUBRESOURCE_DATA res{};
+        res.pSysMem = uv_array;
+        hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &uv_buffer);
+        hr = r_d3d11_state->device->CreateShaderResourceView(uv_buffer, NULL, &uv_srv);
+    }
+    free(uv_array);
+    g_atlas_uv_buffer_res = uv_srv;
+}
+
+internal void d3d11_upload_color_table() {
+    HRESULT hr = S_OK;
+    //@Note Color table buffer
+    ID3D11Buffer *color_table_buffer = NULL;
+    ID3D11ShaderResourceView *color_table_srv = NULL;
+    {
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = (UINT)sizeof(g_block_color_table);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
+        desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+        desc.StructureByteStride = sizeof(u32);
+        D3D11_SUBRESOURCE_DATA res{};
+        res.pSysMem = g_block_color_table;
+        hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &color_table_buffer);
+        hr = r_d3d11_state->device->CreateShaderResourceView(color_table_buffer, NULL, &color_table_srv);
+    }
+    g_block_color_table_res = color_table_srv;
+}
+
+internal void fill_chunk_geometry(Chunk *chunk, Auto_Array<u64> &vertices, bool opaque) {
 #define push_block_vertex(F, P, T, C) (vertices.push(make_block_vertex_data(F, (u8)P.x, (u8)P.y, (u8)P.z, T, C)))
-    vertices.reset_count();
     for (int z = 0; z < CHUNK_SIZE; z++) {
         for (int y = 0; y < CHUNK_HEIGHT; y++) {
             for (int x = 0; x < CHUNK_SIZE; x++) {
                 Block_ID *block = BLOCK_AT(chunk, x, y, z);
-                if (block_active(block)) {
-                    Block *basic_block = get_basic_block(*block);
+                Block *basic_block = get_basic_block(*block);
+
+                if (block_active(block) && (opaque == block_is_opaque(basic_block))) {
                     u8 face_mask = get_chunk_face_mask(chunk, x, y, z);
 
                     const int S = 1;
@@ -650,54 +715,6 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
 
-            //@Note UV buffer
-            v2 *uv_array = (v2 *)malloc(4 * atlas->texture_region_count * sizeof(v2));
-            int region_count = 0;
-            for (int region_bucket_idx = 0; region_bucket_idx < atlas->region_hash_table_size; region_bucket_idx++) {
-                Texture_Region_Bucket *bucket = &atlas->region_hash_table[region_bucket_idx];
-                for (Texture_Region *region = bucket->first; region; region = region->hash_next) {
-                    int region_idx = region->atlas_index;
-                    uv_array[region_idx * 4 + 0] = region->offset + make_v2(0.0f, region->dim.y);
-                    uv_array[region_idx * 4 + 1] = region->offset + make_v2(region->dim.x, region->dim.y);
-                    uv_array[region_idx * 4 + 2] = region->offset + make_v2(region->dim.x, 0.0f);
-                    uv_array[region_idx * 4 + 3] = region->offset + make_v2(0.0f, 0.0f);
-                }
-            }
-            ID3D11Buffer *uv_buffer = NULL;
-            ID3D11ShaderResourceView *uv_srv = NULL;
-            {
-                D3D11_BUFFER_DESC desc{};
-                desc.ByteWidth = (UINT)(4 * atlas->texture_region_count * sizeof(v2));
-                desc.Usage = D3D11_USAGE_DEFAULT;
-                desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
-                desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-                desc.StructureByteStride = sizeof(v2);
-                D3D11_SUBRESOURCE_DATA res{};
-                res.pSysMem = uv_array;
-                hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &uv_buffer);
-                hr = r_d3d11_state->device->CreateShaderResourceView(uv_buffer, NULL, &uv_srv);
-            }
-            r_d3d11_state->device_context->VSSetShaderResources(1, 1, &uv_srv);
-
-            //@Note Color table buffer
-            ID3D11Buffer *color_table_buffer = NULL;
-            ID3D11ShaderResourceView *color_table_srv = NULL;
-            {
-                D3D11_BUFFER_DESC desc{};
-                desc.ByteWidth = (UINT)sizeof(g_block_color_table);
-                desc.Usage = D3D11_USAGE_DEFAULT;
-                desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
-                desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-                desc.StructureByteStride = sizeof(u32);
-                D3D11_SUBRESOURCE_DATA res{};
-                res.pSysMem = g_block_color_table;
-                hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &color_table_buffer);
-                hr = r_d3d11_state->device->CreateShaderResourceView(color_table_buffer, NULL, &color_table_srv);
-            }
-            r_d3d11_state->device_context->VSSetShaderResources(2, 1, &color_table_srv);
-
-            free(uv_array);
-
             //@Todo Block Sorting
             R_Handle tex = atlas->tex_handle;
             if (tex == 0) {
@@ -705,6 +722,9 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             }
             R_D3D11_Tex2D *tex2d = (R_D3D11_Tex2D *)tex;
             r_d3d11_state->device_context->PSSetShaderResources(0, 1, &tex2d->view);
+
+            r_d3d11_state->device_context->VSSetShaderResources(1, 1, &g_atlas_uv_buffer_res);
+            r_d3d11_state->device_context->VSSetShaderResources(2, 1, &g_block_color_table_res);
 
             ID3D11VertexShader *vertex_shader = r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Blocks];
             ID3D11PixelShader *pixel_shader = r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Blocks];
@@ -723,44 +743,114 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
             D3D11_Uniform_BlocksPerChunk chunk_uniform = {};
 
+            //@Note Cull chunks
+            v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
+            Auto_Array<Chunk*> sorted_chunks;
+            sorted_chunks.reserve(params_blocks->chunks.count);
+            for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
+                v3 chunk_position = make_v3(chunk->position.x * chunk_size.x, chunk->position.y * chunk_size.y, chunk->position.z * chunk_size.z);
+                AABB chunk_aabb = make_aabb(chunk_position, chunk_size);
+                if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
+                    sorted_chunks.push(chunk);
+                }
+            }
+
+            //@Note Sort chunks
+            v3 origin = params_blocks->position;
+            for (int i = 0; i < sorted_chunks.count; i++) {
+                Chunk *chunk = sorted_chunks[i];
+                v3 center = 0.5f * make_v3(chunk->position.x * chunk_size.x, chunk->position.y * chunk_size.y, chunk->position.z * chunk_size.z);
+                f32 len = length2(center - origin);
+
+                int j = i - 1;
+                while (j >= 0) {
+                    Chunk *chunk_j = sorted_chunks[j + 1];
+                    v3 center_j = 0.5f * make_v3(chunk_j->position.x * chunk_size.x, chunk_j->position.y * chunk_size.y, chunk_j->position.z * chunk_size.z);
+                    f32 len_j = length(center_j - origin);
+                    if (len < len_j) {
+                        sorted_chunks[j + 1] = sorted_chunks[j];
+                        j--;
+                    } else {
+                        break;
+                    }
+                }
+                sorted_chunks[j + 1] = chunk;
+            }
+
             Auto_Array<u64> vertices;
             vertices.reserve(6 * FACE_COUNT * CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
 
-            v3_s32 player_position = v3s32((s32)floorf(params_blocks->position.x), (s32)floorf(params_blocks->position.y), (s32)floorf(params_blocks->position.z));
-            v3 chunk_size = make_v3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
-            for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
-                v3 chunk_position = CHUNK_SIZE * make_v3((f32)chunk->position.x, (f32)chunk->position.y, (f32)chunk->position.z);
-                AABB chunk_aabb = make_aabb(chunk_position, chunk_size);
 
+            //@Note Render Opaque Blocks
+            for (int i = 0; i < sorted_chunks.count; i++) {
+                Chunk *chunk = sorted_chunks[i];
                 v3_s32 chunk_world_position = chunk->position;
                 chunk_world_position.x *= CHUNK_SIZE;
                 chunk_world_position.y *= CHUNK_HEIGHT;
                 chunk_world_position.z *= CHUNK_SIZE;
-                if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
-                    chunk_uniform.world_position_offset = make_v4(0.0f, 0.0f, 0.0f, 0.0f);
-                    chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
+                chunk_uniform.world_position_offset = make_v4(0.0f, 0.0f, 0.0f, 0.0f);
+                chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
 
-                    d3d11_render_chunk(chunk, vertices);
-                    
-                    d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
+                fill_chunk_geometry(chunk, vertices, true);
+                
+                d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
-                    ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
-                    UINT stride = sizeof(u64), offset = 0;
-                    r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                    r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
+                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
+                UINT stride = sizeof(u64), offset = 0;
+                r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+                r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
 
-                    if (vertex_buffer) vertex_buffer->Release();
-                }
+                vertices.reset_count();
+                if (vertex_buffer) vertex_buffer->Release();
             }
 
-            // r_d3d11_state->device_context->End(end_query);
+            //@Note Render Transparent Blocks
+            // Auto_Array<v3> blocK_positions;
+            // blocK_position.reserve(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
+            for (int chunk_idx = 0; chunk_idx < sorted_chunks.count; chunk_idx++) {
+                Chunk *chunk = sorted_chunks[chunk_idx];
+                v3_s32 chunk_world_position = chunk->position;
+                chunk_world_position.x *= CHUNK_SIZE;
+                chunk_world_position.y *= CHUNK_HEIGHT;
+                chunk_world_position.z *= CHUNK_SIZE;
+                chunk_uniform.world_position_offset = make_v4(0.0f, 0.0f, 0.0f, 0.0f);
+                chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
 
+                fill_chunk_geometry(chunk, vertices, false);
+
+                //@Note Sort transparent blocks
+                //@Error Sorts each vertex of the block, need to sort by cube center
+                // for (s64 i = 0; i < (s64)vertices.count; i++) {
+                //     u64 val = vertices[i];
+                //     v3 v = v3_from_block_data(val);
+                //     f32 len = length2(v - origin);
+                //     s64 j = i - 1;
+                //     while (j >= 0) {
+                //         v3 v_1 = v3_from_block_data(vertices[j]);
+                //         if (len < length2(v_1 - origin)) {
+                //             vertices[j+1] = vertices[j];
+                //             j--;
+                //         } else {
+                //             break;
+                //         }
+                //     }
+                //     vertices[j + 1] = val;
+                // }
+                
+                d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
+
+                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
+                UINT stride = sizeof(u64), offset = 0;
+                r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+                r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
+
+                vertices.reset_count();
+                if (vertex_buffer) vertex_buffer->Release();
+            }
+
+            sorted_chunks.clear();
             vertices.clear();
-
-            uv_buffer->Release();
-            uv_srv->Release();
-            color_table_buffer->Release();
-            color_table_srv->Release();
+            // r_d3d11_state->device_context->End(end_query);
             break;
         }
 
@@ -952,8 +1042,6 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
         }
         }
     }
-
-    r_d3d11_state->swap_chain->Present(1, 0);
 
     //@Note Block rendering profiling
     // r_d3d11_state->device_context->End(disjoint_query);

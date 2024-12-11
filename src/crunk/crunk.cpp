@@ -143,7 +143,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, v3_s32 chunk_positi
 
     load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
     load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    v3_s32 dim = v3s32(4, 0, 4);
+    v3_s32 dim = v3s32(3, 0, 3);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -320,6 +320,11 @@ internal void load_blocks() {
     //@Note Configure all block types
     // --------------------------------------
     Block *blocks = g_basic_blocks;
+
+    {
+        Block *block = &blocks[BLOCK_AIR];
+        block->flags |= BLOCK_FLAG_TRANSPARENT;
+    }
     {
         Block *block = &blocks[BLOCK_STONE];
         set_block_face_all(block, str8_lit("stone.png"), 0);
@@ -352,13 +357,17 @@ internal void load_blocks() {
     {
         Block *block = &blocks[BLOCK_LEAVES];
         set_block_face_all(block, str8_lit("oak_leaves.png"), 3);
+        block->flags |= BLOCK_FLAG_TRANSPARENT;
     }
 
     {
         Block *block = &blocks[BLOCK_WATER];
         set_block_face_all(block, str8_lit("underwater.png"), 6);
-        block->flags |= BLOCK_FLAG_TRANSPARENT;
+        // block->flags |= BLOCK_FLAG_TRANSPARENT;
     }
+
+    d3d11_upload_block_atlas(atlas);
+    d3d11_upload_color_table();
 }
 
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
@@ -684,6 +693,8 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     draw_ui_layout(ui_root());
 
     d3d11_render(window_handle, draw_bucket);
+
+    r_d3d11_state->swap_chain->Present(1, 0);
 
     draw_end();
 
