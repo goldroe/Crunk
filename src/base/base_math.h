@@ -21,7 +21,7 @@
 #define floor_f32(x)  floorf(x)
 #define trunc_f32(x)  truncf(x)
 #define round_f32(x)  roundf(x)
-#define mod_f32(x)    modf(x)
+#define mod_f32(x,y)  fmodf(x,y)
 #define ceil_f32(x)   ceilf(x)
 #define sqrt_f32(x)   sqrtf(x)
 
@@ -154,10 +154,26 @@ inline internal Vector2Int sub_vector2int(Vector2Int a, Vector2Int b);
 inline internal Vector3Int sub_vector3int(Vector3Int a, Vector3Int b);
 inline internal Vector4Int sub_vector4int(Vector4Int a, Vector4Int b);
 
+inline internal Vector2Int mul_vector2intf(Vector2Int v, f32 f);
+inline internal Vector3Int mul_vector3intf(Vector3Int v, f32 f);
+inline internal Vector4Int mul_vector4intf(Vector4Int v, f32 f);
+
 //@Note Operator overloads
 inline Vector2Int operator+(Vector2Int a, Vector2Int b) {Vector2Int result = add_vector2int(a, b); return result;}
 inline Vector3Int operator+(Vector3Int a, Vector3Int b) {Vector3Int result = add_vector3int(a, b); return result;}
 inline Vector4Int operator+(Vector4Int a, Vector4Int b) {Vector4Int result = add_vector4int(a, b); return result;}
+
+inline Vector2Int operator-(Vector2Int a, Vector2Int b) {Vector2Int result = sub_vector2int(a, b); return result;}
+inline Vector3Int operator-(Vector3Int a, Vector3Int b) {Vector3Int result = sub_vector3int(a, b); return result;}
+inline Vector4Int operator-(Vector4Int a, Vector4Int b) {Vector4Int result = sub_vector4int(a, b); return result;}
+
+inline Vector2Int operator+=(Vector2Int &a, Vector2Int b) {a = a + b; return a;}
+inline Vector3Int operator+=(Vector3Int &a, Vector3Int b) {a = a + b; return a;}
+inline Vector4Int operator+=(Vector4Int &a, Vector4Int b) {a = a + b; return a;}
+
+inline Vector2Int operator*(Vector2Int v, f32 f) {Vector2Int result = mul_vector2intf(v, f); return result;}
+inline Vector3Int operator*(Vector3Int v, f32 f) {Vector3Int result = mul_vector3intf(v, f); return result;}
+inline Vector4Int operator*(Vector4Int v, f32 f) {Vector4Int result = mul_vector4intf(v, f); return result;}
 
 inline Vector2 operator+(Vector2 a, Vector2 b) {Vector2 result = add_vector2(a, b); return result;}
 inline Vector3 operator+(Vector3 a, Vector3 b) {Vector3 result = add_vector3(a, b); return result;}
@@ -167,17 +183,9 @@ inline Vector2 operator-(Vector2 v) {Vector2 result = negate_vector2(v); return 
 inline Vector3 operator-(Vector3 v) {Vector3 result = negate_vector3(v); return result;}
 inline Vector4 operator-(Vector4 v) {Vector4 result = negate_vector4(v); return result;}
 
-inline Vector2Int operator-(Vector2Int a, Vector2Int b) {Vector2Int result = sub_vector2int(a, b); return result;}
-inline Vector3Int operator-(Vector3Int a, Vector3Int b) {Vector3Int result = sub_vector3int(a, b); return result;}
-inline Vector4Int operator-(Vector4Int a, Vector4Int b) {Vector4Int result = sub_vector4int(a, b); return result;}
-
 inline Vector2 operator-(Vector2 a, Vector2 b) {Vector2 result = sub_vector2(a, b); return result;}
 inline Vector3 operator-(Vector3 a, Vector3 b) {Vector3 result = sub_vector3(a, b); return result;}
 inline Vector4 operator-(Vector4 a, Vector4 b) {Vector4 result = sub_vector4(a, b); return result;}
-
-inline Vector2Int operator+=(Vector2Int &a, Vector2Int b) {a = a + b; return a;}
-inline Vector3Int operator+=(Vector3Int &a, Vector3Int b) {a = a + b; return a;}
-inline Vector4Int operator+=(Vector4Int &a, Vector4Int b) {a = a + b; return a;}
 
 inline Vector2 operator+=(Vector2 &a, Vector2 b) {a = a + b; return a;}
 inline Vector3 operator+=(Vector3 &a, Vector3 b) {a = a + b; return a;}

@@ -373,6 +373,54 @@ inline internal Vector4Int sub_vector4int(Vector4Int a, Vector4Int b) {
     return result;
 }
 
+inline internal Vector2Int mul_vector2intf(Vector2Int v, f32 s) {
+    Vector2Int result;
+    result.x = (int)(v.x * s);
+    result.y = (int)(v.y * s);
+    return result;
+}
+
+inline internal Vector3Int mul_vector3intf(Vector3Int v, f32 s) {
+    Vector3Int result;
+    result.x = (int)(v.x * s);
+    result.y = (int)(v.y * s);
+    result.z = (int)(v.z * s);
+    return result;
+}
+
+inline internal Vector4Int mul_vector4intf(Vector4Int v, f32 s) {
+    Vector4Int result;
+    result.x = (int)(v.x * s);
+    result.y = (int)(v.y * s);
+    result.z = (int)(v.z * s);
+    result.w = (int)(v.w * s);
+    return result;
+}
+
+inline internal Vector2Int mul_vector2ints(Vector2Int v, int s) {
+    Vector2Int result;
+    result.x = v.x * s;
+    result.y = v.y * s;
+    return result;
+}
+
+inline internal Vector3Int mul_vector3ints(Vector3Int v, int s) {
+    Vector3Int result;
+    result.x = v.x * s;
+    result.y = v.y * s;
+    result.z = v.z * s;
+    return result;
+}
+
+inline internal Vector4Int mul_vector4ints(Vector4Int v, int s) {
+    Vector4Int result;
+    result.x = v.x * s;
+    result.y = v.y * s;
+    result.z = v.z * s;
+    result.w = v.w * s;
+    return result;
+}
+
 inline internal Vector2 add_vector2(Vector2 a, Vector2 b) {
     Vector2 result;
     result.x = a.x + b.x;
