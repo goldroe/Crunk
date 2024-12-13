@@ -705,7 +705,6 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             Texture_Atlas *atlas = params_blocks->atlas;
 
             r_d3d11_state->device_context->RSSetState(r_d3d11_state->rasterizer_states[params_blocks->rasterizer]);
-            r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
             r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Block]);
 
             R_Depth_State_Kind depth_state = R_DepthState_Default;
@@ -743,12 +742,18 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
             D3D11_Uniform_BlocksPerChunk chunk_uniform = {};
 
+            World_Position origin = params_blocks->position;
+
             //@Note Cull chunks
             Vector3 chunk_size = make_vector3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
             Auto_Array<Chunk*> sorted_chunks;
             sorted_chunks.reserve(params_blocks->chunks.count);
             for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
-                Vector3 chunk_position = make_vector3(chunk->position.x * chunk_size.x, chunk->position.y * chunk_size.y, chunk->position.z * chunk_size.z);
+                Vector3 chunk_position = vector3_from_vector3int(chunk->position - get_chunk_position(origin.base));
+                chunk_position.x *= CHUNK_SIZE;
+                chunk_position.y *= CHUNK_HEIGHT;
+                chunk_position.z *= CHUNK_SIZE;
+                // chunk_position += origin.off;
                 AABB chunk_aabb = make_aabb(chunk_position, chunk_size);
                 if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
                     sorted_chunks.push(chunk);
@@ -756,18 +761,19 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             }
 
             //@Note Sort chunks
-            Vector3 origin = params_blocks->position;
             for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
-                Vector3 center = 0.5f * make_vector3(chunk->position.x * chunk_size.x, chunk->position.y * chunk_size.y, chunk->position.z * chunk_size.z);
-                f32 len = length2(center - origin);
+                Vector3Int chunk_position = chunk->position - origin.base;
+                Vector3 center = 0.5f * make_vector3(chunk_position.x * chunk_size.x, chunk_position.y * chunk_size.y, chunk_position.z * chunk_size.z);
+                f32 distance = length2(center);
 
                 int j = i - 1;
                 while (j >= 0) {
                     Chunk *chunk_j = sorted_chunks[j + 1];
-                    Vector3 center_j = 0.5f * make_vector3(chunk_j->position.x * chunk_size.x, chunk_j->position.y * chunk_size.y, chunk_j->position.z * chunk_size.z);
-                    f32 len_j = length(center_j - origin);
-                    if (len < len_j) {
+                    Vector3Int chunk_position_j = chunk_j->position - origin.base;
+                    Vector3 center_j = 0.5f * make_vector3(chunk_position_j.x * chunk_size.x, chunk_position_j.y * chunk_size.y, chunk_position_j.z * chunk_size.z);
+                    f32 distance_j = length(center_j);
+                    if (distance < distance_j) {
                         sorted_chunks[j + 1] = sorted_chunks[j];
                         j--;
                     } else {
@@ -780,6 +786,7 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             Auto_Array<u64> vertices;
             vertices.reserve(6 * FACE_COUNT * CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
 
+            r_d3d11_state->device_context->OMSetBlendState(NULL, NULL, 0xffffffff);
 
             //@Note Render Opaque Blocks
             for (int i = 0; i < sorted_chunks.count; i++) {
@@ -788,11 +795,13 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 chunk_world_position.x *= CHUNK_SIZE;
                 chunk_world_position.y *= CHUNK_HEIGHT;
                 chunk_world_position.z *= CHUNK_SIZE;
-                chunk_uniform.world_position_offset = make_vector4(0.0f, 0.0f, 0.0f, 0.0f);
-                chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
+                chunk_world_position = chunk_world_position - origin.base;
+
+                chunk_uniform.world_position_off = make_vector4(origin.off.x, origin.off.y, origin.off.z, 0);
+                chunk_uniform.world_position = make_vector4int(chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0);
 
                 fill_chunk_geometry(chunk, vertices, true);
-                
+
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
                 ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
@@ -804,6 +813,8 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 if (vertex_buffer) vertex_buffer->Release();
             }
 
+            r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
+
             //@Note Render Transparent Blocks
             // Auto_Array<Vector3> blocK_positions;
             // blocK_position.reserve(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
@@ -813,8 +824,10 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 chunk_world_position.x *= CHUNK_SIZE;
                 chunk_world_position.y *= CHUNK_HEIGHT;
                 chunk_world_position.z *= CHUNK_SIZE;
-                chunk_uniform.world_position_offset = make_vector4(0.0f, 0.0f, 0.0f, 0.0f);
-                chunk_uniform.world_position = {chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0};
+                chunk_world_position = chunk_world_position - origin.base;
+
+                chunk_uniform.world_position_off = make_vector4(origin.off.x, origin.off.y, origin.off.z, 0);
+                chunk_uniform.world_position = make_vector4int(chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0);
 
                 fill_chunk_geometry(chunk, vertices, false);
 

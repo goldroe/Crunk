@@ -48,7 +48,7 @@ struct D3D11_Uniform_Blocks {
 
 struct D3D11_Uniform_BlocksPerChunk {
     Vector4Int world_position;
-    Vector4 world_position_offset;
+    Vector4 world_position_off;
 };
 
 struct R_D3D11_State {

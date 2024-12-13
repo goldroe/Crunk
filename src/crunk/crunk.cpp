@@ -1,23 +1,59 @@
 global World_Generator *world_generator;
+
 global Game_State *game_state;
 global Chunk_Manager *chunk_manager;
 
 global Texture_Atlas *g_block_atlas;
 global R_Handle icon_tex;
 
-internal Vector3Int get_chunk_position(Vector3 position) {
-    Vector3Int result;
-    result.x = (int)floorf(position.x / CHUNK_SIZE);
-    result.y = (int)floorf(position.y / CHUNK_SIZE);
-    result.z = (int)floorf(position.z / CHUNK_SIZE);
+inline internal f32 sign_f32(f32 x) {
+    return x > 0 ? 1.0f : x < 0 ? -1.0f : 0.0f;
+}
+
+inline internal World_Position make_world_position(Vector3Int base, Vector3 off) {
+    World_Position result;
+    result.base = base;
+    result.off = off;
     return result;
 }
 
-internal Vector3Int get_chunk_relative_position(Chunk *chunk, Vector3 world_position) {
+inline internal World_Position add_world_position(World_Position world, Vector3 distance) {
+    World_Position result;
+    Vector3 total_dp = distance + world.off;
+    Vector3Int trunc_dp = make_vector3int((int)trunc_f32(total_dp.x), (int)trunc_f32(total_dp.y), (int)trunc_f32(total_dp.z));
+    result.base = world.base + trunc_dp;
+    result.off = make_vector3(mod_f32(total_dp.x, 1.0f), mod_f32(total_dp.y, 1.0f), mod_f32(total_dp.z, 1.0f));
+    return result; 
+}
+
+internal World_Position lerp(World_Position a, World_Position b, f32 t) {
+    World_Position result;
+    result = add_world_position(a, t * b.off);
+    result.base += b.base * t;
+    return result;
+}
+
+inline internal Vector3Int get_chunk_position(Vector3Int position) {
     Vector3Int result;
-    result.x = (int)floorf(world_position.x - CHUNK_SIZE * chunk->position.x);
-    result.y = (int)floorf(world_position.y - CHUNK_SIZE * chunk->position.y);
-    result.z = (int)floorf(world_position.z - CHUNK_SIZE * chunk->position.z);
+    result.x = (int)floor_f32((f32)position.x / CHUNK_SIZE);
+    result.y = (int)floor_f32((f32)position.y / CHUNK_HEIGHT);
+    result.z = (int)floor_f32((f32)position.z / CHUNK_SIZE);
+    return result;
+}
+
+inline internal Vector3Int get_chunk_position(Vector3 position) {
+    Vector3Int result;
+    result.x = (int)floor_f32(position.x / CHUNK_SIZE);
+    result.y = (int)floor_f32(position.y / CHUNK_SIZE);
+    result.z = (int)floor_f32(position.z / CHUNK_SIZE);
+    return result;
+}
+
+inline internal Vector3Int get_chunk_relative_position(Chunk *chunk, Vector3Int world_position) {
+    Vector3Int result;
+    result.x = world_position.x - CHUNK_SIZE * chunk->position.x;
+    result.y = world_position.y - CHUNK_SIZE * chunk->position.y;
+    result.z = world_position.z - CHUNK_SIZE * chunk->position.z;
     return result;
 }
 
@@ -32,7 +68,7 @@ internal Chunk *get_chunk_from_position(Chunk_Manager *manager, Vector3Int chunk
     return result;
 }
 
-internal Block_ID *get_block_from_position(Chunk_Manager *manager, Vector3 world_position) {
+internal Block_ID *get_block_from_position(Chunk_Manager *manager, Vector3Int world_position) {
     Block_ID *result = NULL;
 
     Vector3Int chunk_p = get_chunk_position(world_position);
@@ -44,7 +80,7 @@ internal Block_ID *get_block_from_position(Chunk_Manager *manager, Vector3 world
     return result;
 }
 
-internal bool is_block_active_at(Chunk_Manager *manager, Vector3 world_position) {
+inline internal bool is_block_active_at(Chunk_Manager *manager, Vector3Int world_position) {
     Block_ID *block = get_block_from_position(manager, world_position);
     return block && *block != BLOCK_AIR;
 }
@@ -143,7 +179,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, Vector3Int chunk_po
 
     load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
     load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    Vector3Int dim = make_vector3int(3, 0, 3);
+    Vector3Int dim = make_vector3int(5, 0, 5);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -370,6 +406,59 @@ internal void load_blocks() {
     d3d11_upload_color_table();
 }
 
+internal bool raycast(Chunk_Manager *manager, World_Position start, Vector3 direction, Raycast_Result *result) {
+    int step_x = (int)sign_f32(direction.x);
+    int step_y = (int)sign_f32(direction.y);
+    int step_z = (int)sign_f32(direction.z);
+
+    f32 next_bound_x = floor_f32(start.off.x + step_x);
+    f32 next_bound_y = floor_f32(start.off.y + step_y);
+    f32 next_bound_z = floor_f32(start.off.z + step_z);
+
+    f32 t_max_x = (next_bound_x - start.off.x) / direction.x;
+    f32 t_max_y = (next_bound_y - start.off.y) / direction.y;
+    f32 t_max_z = (next_bound_z - start.off.z) / direction.z;
+
+    f32 t_delta_x = direction.x != 0 ? (step_x / direction.x) : FLT_MAX;
+    f32 t_delta_y = direction.y != 0 ? (step_y / direction.y) : FLT_MAX;
+    f32 t_delta_z = direction.z != 0 ? (step_z / direction.z) : FLT_MAX;
+
+    int x = 0;
+    int y = 0;
+    int z = 0;
+
+    result->start = start;
+    result->direction = direction;
+    result->face = FACE_NORTH;
+
+    for (int t = 0; t < 128; t++) {
+        if (t_max_x < t_max_y) {
+            if (t_max_x < t_max_z) {
+                t_max_x += t_delta_x;
+                x += step_x;
+            } else {
+                t_max_z += t_delta_z;
+                z += step_z;
+            }
+        } else if (t_max_y < t_max_z) {
+            t_max_y += t_delta_y;
+            y += step_y;
+        } else {
+            t_max_z += t_delta_z;
+            z += step_z;
+        }
+
+        World_Position world_p = add_world_position(start, make_vector3(x, y, z));
+        Block_ID *block = get_block_from_position(manager, world_p.base);
+        if (block && block_active(block)) {
+            result->end = world_p;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
     local_persist bool first_call = true;
     if (first_call) {
@@ -412,9 +501,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             chunk_manager->arena = arena;
         }
 
-        update_chunk_load_list(chunk_manager, {0, 0, 0});
+        update_chunk_load_list(chunk_manager, Vector3Int_Zero);
 
-        game_state->player->position = make_vector3(0.f, (f32)get_height_from_chunk_xz(get_chunk_from_position(chunk_manager, {0, 0, 0}), 0, 0) + 1.0f, 0.f);
+        game_state->player->position = make_world_position(make_vector3int(0, get_height_from_chunk_xz(get_chunk_from_position(chunk_manager, Vector3Int_Zero), 0, 0) + 1, 0), Vector3_Zero);
 
         //@Note Camera
         game_state->camera.up = make_vector3(0.f, 1.f, 0.f);
@@ -426,7 +515,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         game_state->camera.fov = 70.f;
         game_state->camera.aspect = 1024.0f/ 768.0f;
 
-        game_state->frustum = make_frustum(game_state->camera, 0.001f, 1000.0f);
+        game_state->frustum = make_frustum(game_state->camera, 0.001f, 10000.0f);
     }
 
     input_begin(window_handle, event_list);
@@ -437,7 +526,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     ui_begin_build(dt, window_handle, event_list);
 
     //@Note Chunk update
-    Vector3Int chunk_position = get_chunk_position(game_state->player->position);
+    Vector3Int chunk_position = get_chunk_position(game_state->player->position.base);
     chunk_position.y = 0;
     if (chunk_position.x != chunk_manager->chunk_position.x || chunk_position.z != chunk_manager->chunk_position.z) {
         update_chunk_load_list(chunk_manager, chunk_position);
@@ -469,7 +558,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     if (key_pressed(OS_KEY_LEFTMOUSE)) {
         if (game_state->raycast_hit) {
-            Block_ID *block = get_block_from_position(chunk_manager, game_state->raycast_p);
+            Block_ID *block = get_block_from_position(chunk_manager, game_state->raycast_result.end.base);
             if (block && block_active(block)) {
                 *block = BLOCK_AIR;
             }
@@ -478,7 +567,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     if (key_pressed(OS_KEY_RIGHTMOUSE)) {
         if (game_state->raycast_hit) {
-            Block_ID *block = get_block_from_position(chunk_manager, game_state->raycast_p + make_vector3(0.f, 1.f, 0.f));
+            Block_ID *block = get_block_from_position(chunk_manager, add_world_position(game_state->raycast_result.end, Vector3_Up).base);
             *block = BLOCK_LOG;
         }
     }
@@ -504,7 +593,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 
     //@Note Player physics
-    if (game_state->creative_mode) {
+    if (true) {
         Player *player = game_state->player;
         player->velocity = Vector3_Zero;
         f32 speed = 10.0f;
@@ -513,10 +602,12 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             speed = 500.0f; 
         }
 
-        Vector3 distance = game_state->camera.forward * forward_dt + game_state->camera.right * right_dt;
-        Vector3 direction = normalize_vector3(distance);
-        player->position += speed * direction * dt;
-    } else {
+        Vector3 direction = normalize_vector3(game_state->camera.forward * forward_dt + game_state->camera.right * right_dt);
+        Vector3 total_dp = speed * direction * dt;
+        player->position = add_world_position(player->position, total_dp);
+    }
+#if 0
+    else {
         Player *player = game_state->player;
         f32 G = 9.8f;
         f32 J = 25.f;
@@ -615,28 +706,28 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         player->velocity = new_velocity;
         player->position = new_position;
     }
+#endif
 
-    game_state->camera.position = game_state->player->position + 0.5f * game_state->camera.forward + make_vector3(0.5f, 0.5f, 0.5f);
+    //@Todo Make camera position player position offset?
+    // So that basically we pass player position relative to the chunk so everything is in world space
+    game_state->camera.position = 0.5f * game_state->camera.forward + Vector3_Half;
+    // game_state->camera.position = -Vector3_Half;
     game_state->camera.position.y += 1.f;
 
     //@Note Update Frustum
     game_state->frustum = make_frustum(game_state->camera, 0.001f, 1000.0f);
 
+    //@Note Raycast
+    game_state->raycast_hit = false;
     {
-        game_state->raycast_hit = false;
-        Vector3 origin = game_state->camera.position;
         Vector3 direction = game_state->camera.forward;
-        f32 t = 0.0f;
-        f32 max_d = 12.0f;
-        while (t <= max_d) {
-            Vector3 p = origin + t * direction;
-            Block_ID *block = get_block_from_position(chunk_manager, p);
-            if (block && block_active(block)) {
-                game_state->raycast_hit = true;
-                game_state->raycast_p = floor_vector3(p);
-                break;
-            }
-            t += 1.0f;
+        // World_Position start = add_world_position(game_state->player->position, make_vector3(-0.5f, 0.5f, 0.0f));
+        World_Position start = add_world_position(game_state->player->position, game_state->camera.position);
+
+        Raycast_Result ray = {};
+        if (raycast(chunk_manager, start, direction, &ray)) {
+            game_state->raycast_hit = true;
+            game_state->raycast_result = ray;
         }
     }
 
@@ -651,7 +742,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     //@Note draw raycast block
     draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
     if (game_state->raycast_hit) {
-        draw_cube(game_state->raycast_p, make_rect(0, 0, 0, 0), make_vector4(1, 1, 1, 1), FACE_MASK_NIL);
+        draw_cube(vector3_from_vector3int(game_state->raycast_result.end.base - game_state->player->position.base) - game_state->player->position.off, Rect_Zero, Vector4_One, FACE_MASK_NIL);
     }
 
     draw_set_xform(ortho_projection);
@@ -676,7 +767,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@DEBUG
     ui_labelf("delta: %fms", 1000.0 * dt);
-    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+    ui_labelf("world:%d %d %d offset: %f %f %f chunk:%d %d %d", game_state->player->position.base.x, game_state->player->position.base.y, game_state->player->position.base.z, game_state->player->position.off.x, game_state->player->position.off.y, game_state->player->position.off.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
     ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
     // ui_labelf("vertices %d", mesh_vertices_this_frame);
     // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");

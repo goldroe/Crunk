@@ -9,6 +9,18 @@
 #define FACE_MASK_SOUTH  (1<<4)
 #define FACE_MASK_NORTH   (1<<5)
 
+struct World_Position {
+    Vector3Int base;
+    Vector3 off;
+};
+
+struct Raycast_Result {
+    World_Position start;
+    World_Position end;
+    Vector3 direction;
+    Face face;
+};
+
 struct Chunk_Node;
 struct Chunk;
 
@@ -84,7 +96,7 @@ struct Crafting_State {
 
 struct Player {
     Inventory *inventory;
-    Vector3 position;
+    World_Position position;
     Vector3 velocity;
     b32 grounded;
     b32 jumping;
@@ -97,7 +109,7 @@ struct Game_State {
     Camera camera;
 
     b32 raycast_hit;
-    Vector3 raycast_p;
+    Raycast_Result raycast_result;
 
     b32 creative_mode;
     Crafting_State *crafting_state;
@@ -107,5 +119,7 @@ struct Game_State {
 
     b32 mesh_debug;
 };
+
+inline internal Vector3Int get_chunk_position(Vector3Int position);
 
 #endif // CRUNK_H

@@ -91,7 +91,7 @@ struct R_Params_Blocks {
     R_Rasterizer_Kind rasterizer;
     Chunk_List chunks;
     Frustum frustum;
-    Vector3 position;
+    World_Position position;
 };
 
 struct R_Params {

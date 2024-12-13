@@ -356,7 +356,7 @@ internal void draw_quad_pro(R_Handle img, Rect src, Rect dst, Vector2 origin, f3
 }
 
 internal void draw_quad(R_Handle img, Rect dst, Rect src) {
-    draw_quad_pro(img, src, dst, Vector2_Zero, 0.f, Vector4_Zero);
+    draw_quad_pro(img, src, dst, Vector2_Zero, 0.f, Vector4_One);
 }
 
 internal void draw_rect(Rect dst, Vector4 color) {
@@ -394,7 +394,7 @@ internal void draw_rect_outline(Rect rect, Vector4 color) {
     draw_rect(make_rect(rect.x0, rect.y1 - 1, rect_width(rect), 1), color);
 }
 
-internal void draw_chunks(Chunk_List chunks, Vector3 position, Frustum frustum, Matrix4 projection, Matrix4 view, Texture_Atlas *atlas, R_Rasterizer_Kind rasterizer) {
+internal void draw_chunks(Chunk_List chunks, World_Position position, Frustum frustum, Matrix4 projection, Matrix4 view, Texture_Atlas *atlas, R_Rasterizer_Kind rasterizer) {
     R_Batch_Node *node = draw_bucket->batches.last;
     node = push_array(draw_arena, R_Batch_Node, 1);
     draw_push_batch_node(&draw_bucket->batches, node);
