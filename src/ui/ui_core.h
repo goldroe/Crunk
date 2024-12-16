@@ -73,17 +73,17 @@ struct UI_Box {
     UI_Box_Flags flags = UI_BoxFlag_Nil;
     int box_id = 0 ; //@Note Shows order of creation
 
-    Vector2 fixed_position = Vector2_Zero; // computed relative to parent
-    Vector2 fixed_size = Vector2_Zero; // computed on requested size
+    V2_F32 fixed_position = V2_Zero; // computed relative to parent
+    V2_F32 fixed_size = V2_Zero; // computed on requested size
     Rect rect;
     UI_Size pref_size[Axis_COUNT];
     Axis2 child_layout_axis = Axis_Y;
     UI_Text_Align text_alignment = UI_TextAlign_Center;
     Font *font;
-    Vector4 background_color = Vector4_One;
-    Vector4 text_color = Vector4_Zero;
-    Vector4 border_color = Vector4_Zero;
-    Vector4 hover_color = Vector4_Zero;
+    V4_F32 background_color = V4_One;
+    V4_F32 text_color = V4_Zero;
+    V4_F32 border_color = V4_Zero;
+    V4_F32 hover_color = V4_Zero;
     f32 border_thickness;
     String8 string = str8_zero();
 
@@ -92,8 +92,8 @@ struct UI_Box {
     OS_Cursor hover_cursor;
 
     //@Note Persistent data
-    Vector2 view_offset;
-    Vector2 view_offset_target;
+    V2_F32 view_offset;
+    V2_F32 view_offset_target;
     f32 hot_t = 0.f;
     f32 active_t = 0.f;
     f32 focus_active_t = 0.f;
@@ -114,10 +114,10 @@ struct UI_PrefWidth_Node               { UI_PrefWidth_Node       *next; UI_Size 
 struct UI_PrefHeight_Node              { UI_PrefHeight_Node      *next; UI_Size v; };
 struct UI_ChildLayoutAxis_Node         { UI_ChildLayoutAxis_Node *next; Axis2 v; };
 struct UI_TextAlignment_Node           { UI_TextAlignment_Node   *next; UI_Text_Align v; };
-struct UI_BackgroundColor_Node         { UI_BackgroundColor_Node *next; Vector4 v; };
-struct UI_BorderColor_Node             { UI_BorderColor_Node     *next; Vector4 v; };
-struct UI_TextColor_Node               { UI_TextColor_Node       *next; Vector4 v; };
-struct UI_HoverColor_Node              { UI_HoverColor_Node      *next; Vector4 v; };
+struct UI_BackgroundColor_Node         { UI_BackgroundColor_Node *next; V4_F32 v; };
+struct UI_BorderColor_Node             { UI_BorderColor_Node     *next; V4_F32 v; };
+struct UI_TextColor_Node               { UI_TextColor_Node       *next; V4_F32 v; };
+struct UI_HoverColor_Node              { UI_HoverColor_Node      *next; V4_F32 v; };
 struct UI_BorderThickness_Node         { UI_BorderThickness_Node *next; f32 v; };
 struct UI_Cursor_Node                  { UI_Cursor_Node          *next; OS_Cursor v; };
 struct UI_BoxFlags_Node                { UI_BoxFlags_Node        *next; UI_Box_Flags v; };
@@ -191,8 +191,8 @@ struct UI_Event {
     UI_Event_Kind kind;
     OS_Key key;
     OS_Event_Flags key_modifiers;
-    Vector2Int pos;
-    Vector2Int delta;
+    V2_S32 pos;
+    V2_S32 delta;
     String8 text;
 };
 
@@ -220,8 +220,8 @@ struct UI_State {
     UI_Key active_box_key = 0;
     UI_Key hot_box_key = 0;
 
-    Vector2 mouse;
-    Vector2Int mouse_drag_start;
+    V2_F32 mouse;
+    V2_S32 mouse_drag_start;
     b32 mouse_dragging;
 
     b32 keyboard_captured;
@@ -253,7 +253,7 @@ struct UI_Signal {
     OS_Key key;
     OS_Event_Flags key_modifiers;
     String8 text;
-    Vector2Int scroll;
+    V2_S32 scroll;
 };
 
 struct UI_Txt_Buffer {
@@ -278,7 +278,7 @@ enum UI_Icon_Kind {
     UI_IconKind_COUNT
 };
 
-internal Vector2 ui_drag_delta();
+internal V2_F32 ui_drag_delta();
 
 #define ui_clicked(sig)      ((sig).flags & UI_SignalFlag_Clicked)
 #define ui_hover(sig)        ((sig).flags & UI_SignalFlag_Hover)
@@ -299,10 +299,10 @@ internal void ui_set_next_pref_height(UI_Size v);
 internal void ui_set_next_pref_size(Axis2 axis, UI_Size size);
 internal void ui_set_next_child_layout_axis(Axis2 v);
 internal void ui_set_next_text_alignment(UI_Text_Align v);
-internal void ui_set_next_background_color(Vector4 v);
-internal void ui_set_next_border_color(Vector4 v);
-internal void ui_set_next_text_color(Vector4 v);
-internal void ui_set_next_hover_color(Vector4 v);
+internal void ui_set_next_background_color(V4_F32 v);
+internal void ui_set_next_border_color(V4_F32 v);
+internal void ui_set_next_text_color(V4_F32 v);
+internal void ui_set_next_hover_color(V4_F32 v);
 internal void ui_set_next_border_thickness(f32 v);
 internal void ui_set_next_hover_cursor(OS_Cursor v);
 internal void ui_set_next_box_flags(UI_Box_Flags v);
@@ -318,10 +318,10 @@ internal void ui_push_pref_height(UI_Size v);
 internal void ui_push_pref_size(Axis2 axis, UI_Size size);
 internal void ui_push_child_layout_axis(Axis2 v);
 internal void ui_push_text_alignment(UI_Text_Align v);
-internal void ui_push_background_color(Vector4 v);
-internal void ui_push_border_color(Vector4 v);
-internal void ui_push_text_color(Vector4 v);
-internal void ui_push_hover_color(Vector4 v);
+internal void ui_push_background_color(V4_F32 v);
+internal void ui_push_border_color(V4_F32 v);
+internal void ui_push_text_color(V4_F32 v);
+internal void ui_push_hover_color(V4_F32 v);
 internal void ui_push_border_thickness(f32 v);
 internal void ui_push_hover_cursor(OS_Cursor v);
 internal void ui_push_box_flags(UI_Box_Flags v);
@@ -337,10 +337,10 @@ internal UI_Size ui_pop_pref_height();
 internal UI_Size ui_pop_pref_size(Axis2 axis, UI_Size size);
 internal Axis2 ui_pop_child_layout_axis();
 internal UI_Text_Align ui_pop_text_alignment();
-internal Vector4 ui_pop_background_color();
-internal Vector4 ui_pop_border_color();
-internal Vector4 ui_pop_text_color();
-internal Vector4 ui_pop_hover_color();
+internal V4_F32 ui_pop_background_color();
+internal V4_F32 ui_pop_border_color();
+internal V4_F32 ui_pop_text_color();
+internal V4_F32 ui_pop_hover_color();
 internal f32 ui_pop_border_thickness();
 internal OS_Cursor ui_pop_hover_cursor();
 internal UI_Box_Flags ui_pop_box_flags();
@@ -357,7 +357,7 @@ internal UI_Signal ui_signal_from_box(UI_Box *box);
 
 internal UI_Box *ui_root();
 
-internal Vector2 ui_text_position(UI_Box *box);
+internal V2_F32 ui_text_position(UI_Box *box);
 
 internal UI_Size ui_size(UI_Size_Kind kind, f32 value, f32 strictness);
 #define ui_px(value, strictness)  (ui_size(UI_SizeKind_Pixels, value, strictness))

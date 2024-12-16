@@ -88,7 +88,7 @@ int main() {
 
     d3d11_render_initialize(hWnd);
 
-    Vector2 old_window_dim = Vector2_Zero;
+    V2_F32 old_window_dim = V2_Zero;
 
     int target_frames_per_second = 75;
     int target_ms_per_frame = (int)(1000.f / (f32)target_frames_per_second);
@@ -106,7 +106,7 @@ int main() {
             DispatchMessageA(&message);
         }
 
-        Vector2 window_dim = os_get_window_dim(window_handle);
+        V2_F32 window_dim = os_get_window_dim(window_handle);
         if (window_dim != old_window_dim) {
             //@Note Do not resize if window is minimized
             if (window_dim.x != 0 && window_dim.y != 0) {

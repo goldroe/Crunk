@@ -1,6 +1,8 @@
 #ifndef BLOCK_H
 #define BLOCK_H
 
+struct Chunk;
+
 enum Block_Flags {
     BLOCK_FLAG_NIL          = 0,
     BLOCK_FLAG_GRAVITY      = (1<<0),
@@ -56,9 +58,12 @@ struct Block {
     // f32 friction_coefficient;
 };
 
-inline internal bool block_active(Block_ID *block);
+inline internal Block_ID *block_id_zero();
+inline internal char *block_to_string(Block_ID block);
+inline internal Block_ID *block_at(Chunk *chunk, int x, int y, int z);
+inline internal bool block_is_active(Block_ID block);
 inline internal Block *get_basic_block(Block_ID block);
 inline internal bool block_is_opaque(Block *block);
-inline internal bool block_is_opaque(Block_ID *block);
-
+inline internal bool block_is_opaque(Block_ID block);
+inline internal void block_place(Block_ID *block, Block_ID value);
 #endif // BLOCK_H

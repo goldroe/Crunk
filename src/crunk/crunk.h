@@ -9,15 +9,15 @@
 #define FACE_MASK_SOUTH  (1<<4)
 #define FACE_MASK_NORTH   (1<<5)
 
-struct World_Position {
-    Vector3Int base;
-    Vector3 off;
+struct Ray {
+    V3_F64 origin;
+    V3_F32 direction;
 };
 
-struct Raycast_Result {
-    World_Position start;
-    World_Position end;
-    Vector3 direction;
+struct Voxel_Raycast {
+    Ray ray;
+    V3_F64 hit;
+    Block_ID *block;
     Face face;
 };
 
@@ -45,13 +45,13 @@ struct Chunk_List {
 struct Chunk {
     Chunk *next;
     Chunk *prev;
-    Vector3Int position;
+    V3_S32 position;
     Block_ID *blocks;
 };
 
 struct Chunk_Manager {
     Arena *arena;
-    Vector3Int chunk_position;
+    V3_S32 chunk_position;
     Chunk_List free_chunks;
     Chunk_List loaded_chunks;
 };
@@ -60,7 +60,6 @@ struct Chunk_Manager {
 
 #define CHUNK_SIZE 64
 #define CHUNK_HEIGHT 64
-#define BLOCK_AT(Chunk, X, Y, Z) (&(Chunk)->blocks[(X) + (Y)*CHUNK_SIZE + (Z)*CHUNK_SIZE*CHUNK_SIZE])
 
 #define INVENTORY_SLOTS 36
 #define CRAFT_SLOTS 9
@@ -95,9 +94,13 @@ struct Crafting_State {
 };
 
 struct Player {
+    V3_F64 position;
+    V3_F32 velocity;
+
+    Voxel_Raycast raycast;
+
     Inventory *inventory;
-    World_Position position;
-    Vector3 velocity;
+
     b32 grounded;
     b32 jumping;
     f32 jump_t;
@@ -105,21 +108,23 @@ struct Player {
 
 struct Game_State {
     Arena *arena;
-    Vector2Int client_dim;
+    V2_S32 client_dim;
     Camera camera;
-
-    b32 raycast_hit;
-    Raycast_Result raycast_result;
 
     b32 creative_mode;
     Crafting_State *crafting_state;
     Player *player;
+
+    int ticks_per_second;
+    int ticks_per_day;
+
+    int day_t;
 
     Frustum frustum;
 
     b32 mesh_debug;
 };
 
-inline internal Vector3Int get_chunk_position(Vector3Int position);
+inline internal V3_S32 get_chunk_position(V3_S32 position);
 
 #endif // CRUNK_H

@@ -10,7 +10,7 @@ struct AABB {
     f32 z1;
 };
 
-inline internal AABB make_aabb(Vector3 p, Vector3 size) {
+inline internal AABB make_aabb(V3_F32 p, V3_F32 size) {
     AABB result;
     result.x0 = p.x;
     result.y0 = p.y;

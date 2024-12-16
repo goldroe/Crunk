@@ -52,10 +52,10 @@ internal void generate_chunk(Chunk_Manager *manager, World_Generator *generator,
             height = Clamp(height, 4, 20);
 
             if (height < 8) {
-                for (int y = 0; y < height; y++) {
-                    Block_ID *block = BLOCK_AT(chunk, x, y, z);
-                    *block = BLOCK_WATER;
-                }
+            //     for (int y = 0; y < height; y++) {
+            //         Block_ID *block = block_at(chunk, x, y, z);
+            //         *block = BLOCK_WATER;
+            //     }
             } else {
                 for (int y = 0; y < height; y++) {
                     Block_ID block_type = BLOCK_STONE;
@@ -64,7 +64,7 @@ internal void generate_chunk(Chunk_Manager *manager, World_Generator *generator,
                     } else if (y >= 0.7f * height) {
                         block_type = BLOCK_DIRT;
                     }
-                    Block_ID *block = BLOCK_AT(chunk, x, y, z);
+                    Block_ID *block = block_at(chunk, x, y, z);
                     *block = block_type;
                 }
 
@@ -77,10 +77,10 @@ internal void generate_chunk(Chunk_Manager *manager, World_Generator *generator,
                 if (generate_tree) {
                     int max_tree_y = height + 4;
                     for (int y = height; y < max_tree_y; y++) {
-                        Block_ID *block = BLOCK_AT(chunk, x, y, z);
+                        Block_ID *block = block_at(chunk, x, y, z);
                         *block = BLOCK_LOG;
                     }
-                    Block_ID *block = BLOCK_AT(chunk, x, max_tree_y, z);
+                    Block_ID *block = block_at(chunk, x, max_tree_y, z);
                     *block = BLOCK_LEAVES;
                 }
             }

@@ -2,7 +2,7 @@
 #define DRAW_H
 
 struct Draw_Bucket {
-    Matrix4 xform;
+    M4_F32 xform;
     R_Handle tex;
     Rect clip;
     R_Params_Kind params_kind;
@@ -15,7 +15,7 @@ internal void draw_begin(OS_Handle window_handle);
 internal void draw_end();
 
 internal void draw_quad(R_Handle img, Rect dst, Rect src);
-internal void draw_rect(Rect dst, Vector4 color);
-internal void draw_text(String8 text, Font *font, Vector4 color, Vector2 offset);
+internal void draw_rect(Rect dst, V4_F32 color);
+internal void draw_text(String8 text, Font *font, V4_F32 color, V2_F32 offset);
 
 #endif // DRAW_H

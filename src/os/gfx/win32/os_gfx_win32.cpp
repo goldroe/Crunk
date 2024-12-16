@@ -232,8 +232,8 @@ internal Rect os_client_rect_from_window(OS_Handle window_handle) {
     return result;
 }
 
-internal Vector2 os_get_window_dim(OS_Handle window_handle) {
-    Vector2 result{};
+internal V2_F32 os_get_window_dim(OS_Handle window_handle) {
+    V2_F32 result{};
     RECT rect;
     int width = 0, height = 0;
     if (GetClientRect((HWND)window_handle, &rect)) {
@@ -243,11 +243,11 @@ internal Vector2 os_get_window_dim(OS_Handle window_handle) {
     return result;
 }
 
-internal Vector2 os_mouse_from_window(OS_Handle window_handle) {
+internal V2_F32 os_mouse_from_window(OS_Handle window_handle) {
     POINT pt;
     GetCursorPos(&pt);
     ScreenToClient((HWND)window_handle, &pt);
-    Vector2 result;
+    V2_F32 result;
     result.x = (f32)pt.x;
     result.y = (f32)pt.y;
     return result;

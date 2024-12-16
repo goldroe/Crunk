@@ -9,30 +9,30 @@ internal bool key_up(OS_Key key)      { bool result = button_released(key); retu
 internal bool key_pressed(OS_Key key) { bool result = button_pressed(key); return result; }
 internal bool key_down(OS_Key key)    { bool result = button_down(key); return result; }
 
-internal inline Vector2 get_mouse_drag_delta() {
-    Vector2 result;
+internal inline V2_F32 get_mouse_drag_delta() {
+    V2_F32 result;
     result.x = (f32)(g_input.mouse_position.x - g_input.mouse_drag_start.x);
     result.y = (f32)(g_input.mouse_position.y - g_input.mouse_drag_start.y);
     return result;
 }
 
-internal inline Vector2 get_mouse_delta() {
-    Vector2 result; 
+internal inline V2_F32 get_mouse_delta() {
+    V2_F32 result; 
     result.x = (f32)(g_input.mouse_position.x - g_input.last_mouse_position.x);
     result.y = (f32)(g_input.mouse_position.y - g_input.last_mouse_position.y);
     return result;
 }
 
-internal inline Vector2 mouse_position() {
-    Vector2 result;
+internal inline V2_F32 mouse_position() {
+    V2_F32 result;
     result.x = (f32)g_input.mouse_position.x;
     result.y = (f32)(g_input.client_dim.y - g_input.mouse_position.y);
     return result;
 }
 
 internal void input_begin(OS_Handle window_handle, OS_Event_List *events) {
-    Vector2 window_dim = os_get_window_dim(window_handle);
-    g_input.client_dim = make_vector2int((s32)window_dim.x, (s32)window_dim.y);
+    V2_F32 window_dim = os_get_window_dim(window_handle);
+    g_input.client_dim = v2_s32((s32)window_dim.x, (s32)window_dim.y);
 
     for (OS_Event *evt = events->first; evt; evt = evt->next) {
         bool pressed = false;
@@ -68,9 +68,9 @@ internal void input_begin(OS_Handle window_handle, OS_Event_List *events) {
 }
 
 internal void input_end(OS_Handle window_handle) {
-    Vector2 window_dim = os_get_window_dim(window_handle);
-    Vector2Int client_dim = make_vector2int((s32)window_dim.x, (s32)window_dim.y);
-    g_input.scroll_delta = make_vector2int(0, 0);
+    V2_F32 window_dim = os_get_window_dim(window_handle);
+    V2_S32 client_dim = v2_s32((s32)window_dim.x, (s32)window_dim.y);
+    g_input.scroll_delta = v2_s32(0, 0);
     g_input.mouse_drag_start = g_input.mouse_position;
     for (int i = 0; i < ArrayCount(g_input.buttons); i++) {
         g_input.buttons[i] &= ~ButtonState_Released;
@@ -79,7 +79,7 @@ internal void input_end(OS_Handle window_handle) {
 
     //@Note Input: Capture cursor
     if (os_window_is_focused(window_handle)) {
-        Vector2Int center = make_vector2int(client_dim.x / 2, client_dim.y / 2);
+        V2_S32 center = v2_s32(client_dim.x / 2, client_dim.y / 2);
         g_input.mouse_position.x = g_input.last_mouse_position.x = center.x;
         g_input.mouse_position.y = g_input.last_mouse_position.y = center.y;
 

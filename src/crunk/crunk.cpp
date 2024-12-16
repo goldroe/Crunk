@@ -5,59 +5,88 @@ global Chunk_Manager *chunk_manager;
 
 global Texture_Atlas *g_block_atlas;
 global R_Handle icon_tex;
+global R_Handle sun_tex;
+
+internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
+    Ray result;
+    result.origin = origin;
+    result.direction = direction;
+    return result;
+}
 
 inline internal f32 sign_f32(f32 x) {
-    return x > 0 ? 1.0f : x < 0 ? -1.0f : 0.0f;
+    return x > EPSILON ? 1.0f : x < -EPSILON ? -1.0f : 0.0f;
 }
 
-inline internal World_Position make_world_position(Vector3Int base, Vector3 off) {
-    World_Position result;
-    result.base = base;
-    result.off = off;
+inline internal V3_F32 v3_f32_from_face(Face face) {
+    switch (face) {
+    default:
+        return V3_Zero;
+    case FACE_TOP:
+        return V3_Up;
+    case FACE_BOTTOM:
+        return V3_Down;
+    case FACE_NORTH:
+        return V3_Forward;
+    case FACE_SOUTH:
+        return V3_Back;
+    case FACE_EAST:
+        return V3_Right;
+    case FACE_WEST:
+        return V3_Left;
+    }
+}
+
+inline internal char *face_to_string(Face face) {
+    char *result = NULL;
+    switch (face) {
+    case FACE_WEST:
+        result = "WEST";
+        break;
+    case FACE_EAST:
+        result = "EAST";
+        break;
+    case FACE_NORTH:
+        result = "NORTH";
+        break;
+    case FACE_SOUTH:
+        result = "SOUTH";
+        break;
+    case FACE_TOP:
+        result = "TOP";
+        break;
+    case FACE_BOTTOM:
+        result = "BOTTOM";
+        break;
+    }
     return result;
 }
 
-inline internal World_Position add_world_position(World_Position world, Vector3 distance) {
-    World_Position result;
-    Vector3 total_dp = distance + world.off;
-    Vector3Int trunc_dp = make_vector3int((int)trunc_f32(total_dp.x), (int)trunc_f32(total_dp.y), (int)trunc_f32(total_dp.z));
-    result.base = world.base + trunc_dp;
-    result.off = make_vector3(mod_f32(total_dp.x, 1.0f), mod_f32(total_dp.y, 1.0f), mod_f32(total_dp.z, 1.0f));
-    return result; 
-}
-
-internal World_Position lerp(World_Position a, World_Position b, f32 t) {
-    World_Position result;
-    result = add_world_position(a, t * b.off);
-    result.base += b.base * t;
+inline internal V3_S32 get_chunk_position(s32 x, s32 y, s32 z) {
+    V3_S32 result;
+    result.x = (int)floor_f32((f32)x / CHUNK_SIZE);
+    result.y = (int)floor_f32((f32)y / CHUNK_HEIGHT);
+    result.z = (int)floor_f32((f32)z / CHUNK_SIZE);
     return result;
 }
 
-inline internal Vector3Int get_chunk_position(Vector3Int position) {
-    Vector3Int result;
-    result.x = (int)floor_f32((f32)position.x / CHUNK_SIZE);
-    result.y = (int)floor_f32((f32)position.y / CHUNK_HEIGHT);
-    result.z = (int)floor_f32((f32)position.z / CHUNK_SIZE);
+inline internal V3_S32 get_chunk_position(V3_F64 position) {
+    V3_S32 result;
+    result.x = (int)floor_f64(position.x / CHUNK_SIZE);
+    result.y = (int)floor_f64(position.y / CHUNK_HEIGHT);
+    result.z = (int)floor_f64(position.z / CHUNK_SIZE);
     return result;
 }
 
-inline internal Vector3Int get_chunk_position(Vector3 position) {
-    Vector3Int result;
-    result.x = (int)floor_f32(position.x / CHUNK_SIZE);
-    result.y = (int)floor_f32(position.y / CHUNK_SIZE);
-    result.z = (int)floor_f32(position.z / CHUNK_SIZE);
+inline internal V3_S32 get_chunk_relative_position(Chunk *chunk, s32 x, s32 y, s32 z) {
+    V3_S32 result;
+    result.x = x - CHUNK_SIZE * chunk->position.x;
+    result.y = y - CHUNK_HEIGHT * chunk->position.y;
+    result.z = z - CHUNK_SIZE * chunk->position.z;
     return result;
 }
 
-inline internal Vector3Int get_chunk_relative_position(Chunk *chunk, Vector3Int world_position) {
-    Vector3Int result;
-    result.x = world_position.x - CHUNK_SIZE * chunk->position.x;
-    result.y = world_position.y - CHUNK_SIZE * chunk->position.y;
-    result.z = world_position.z - CHUNK_SIZE * chunk->position.z;
-    return result;
-}
-
-internal Chunk *get_chunk_from_position(Chunk_Manager *manager, Vector3Int chunk_position) {
+internal Chunk *get_chunk_from_position(Chunk_Manager *manager, V3_S32 chunk_position) {
     Chunk *result = NULL;
     for (Chunk *chunk = manager->loaded_chunks.first; chunk; chunk = chunk->next) {
         if (chunk->position == chunk_position) {
@@ -68,28 +97,29 @@ internal Chunk *get_chunk_from_position(Chunk_Manager *manager, Vector3Int chunk
     return result;
 }
 
-internal Block_ID *get_block_from_position(Chunk_Manager *manager, Vector3Int world_position) {
-    Block_ID *result = NULL;
+internal Block_ID *get_block_from_position(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
+    Block_ID *result = block_id_zero();
 
-    Vector3Int chunk_p = get_chunk_position(world_position);
+    V3_S32 chunk_p = get_chunk_position(x, y, z);
     Chunk *chunk = get_chunk_from_position(manager, chunk_p);
     if (chunk) {
-        Vector3Int block_p = get_chunk_relative_position(chunk, world_position);
-        result = BLOCK_AT(chunk, block_p.x, block_p.y, block_p.z);
+        V3_S32 block_p = get_chunk_relative_position(chunk, x, y, z);
+        result = block_at(chunk, block_p.x, block_p.y, block_p.z);
     }
+
     return result;
 }
 
-inline internal bool is_block_active_at(Chunk_Manager *manager, Vector3Int world_position) {
-    Block_ID *block = get_block_from_position(manager, world_position);
-    return block && *block != BLOCK_AIR;
+inline internal bool is_block_active_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
+    Block_ID *block = get_block_from_position(manager, x, y, z);
+    return block_is_active(*block);
 }
 
 internal s32 get_height_from_chunk_xz(Chunk *chunk, s32 x, s32 z) {
     s32 result = 0;
     for (int y = CHUNK_SIZE - 1; y >= 0; y--) {
-        Block_ID *block = BLOCK_AT(chunk, x, y, z);
-        if (block_active(block)) {
+        Block_ID *block = block_at(chunk, x, y, z);
+        if (block_is_active(*block)) {
             result = y;
             break;
         }
@@ -100,18 +130,18 @@ internal s32 get_height_from_chunk_xz(Chunk *chunk, s32 x, s32 z) {
 internal R_Handle load_texture(String8 file_name) {
     int x, y, n;
     u8 *data = stbi_load((char *)file_name.data, &x, &y, &n, 4);
-    R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, make_vector2int(x, y), data);
+    R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, v2_s32(x, y), data);
     return tex;
 }
 
 internal Texture_Map load_texture_map(String8 file_name) {
     int x, y, n;
     u8 *data = stbi_load((char *)file_name.data, &x, &y, &n, 1);
-    R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8, make_vector2int(x, y), data);
+    R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8, v2_s32(x, y), data);
 
     Texture_Map result = {};
     result.texture = tex;
-    result.size = make_vector2int(x, y);
+    result.size = v2_s32(x, y);
     result.data = data;
     return result;
 }
@@ -138,7 +168,7 @@ internal Chunk *chunk_new(Chunk_Manager *manager) {
 }
 
 internal Chunk *load_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
-    Vector3Int position = {x, y, z};
+    V3_S32 position = {x, y, z};
     Chunk *result = NULL;
     for (Chunk *chunk = manager->free_chunks.first; chunk; chunk = chunk->next) {
         if (chunk->position == position) {
@@ -153,7 +183,7 @@ internal Chunk *load_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
 }
 
 internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
-    Vector3Int position = {x, y, z};
+    V3_S32 position = {x, y, z};
     bool found = false;
     for (Chunk *chunk = manager->loaded_chunks.first; chunk; chunk = chunk->next) {
         if (chunk->position == position) {
@@ -169,7 +199,7 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
     }
 }
 
-internal void update_chunk_load_list(Chunk_Manager *manager, Vector3Int chunk_position) {
+internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_position) {
     //@Note Free chunks
     for (Chunk *chunk = manager->loaded_chunks.first, *next = NULL; chunk; chunk = next) {
         next = chunk->next;
@@ -179,7 +209,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, Vector3Int chunk_po
 
     load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
     load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    Vector3Int dim = make_vector3int(5, 0, 5);
+    V3_S32 dim = v3_s32(5, 0, 5);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -317,8 +347,8 @@ internal void load_blocks() {
 
         Texture_Region *region = &atlas->texture_regions[texture_count];
         region->name = path_strip_file_name(arena, file.file_name);
-        region->offset = make_vector2(atlas_x / (f32)MAX_ATLAS_X, atlas_y / (f32)MAX_ATLAS_Y);
-        region->dim = make_vector2(1.0f / MAX_ATLAS_X, 1.0f / MAX_ATLAS_Y);
+        region->offset = v2_f32(atlas_x / (f32)MAX_ATLAS_X, atlas_y / (f32)MAX_ATLAS_Y);
+        region->dim = v2_f32(1.0f / MAX_ATLAS_X, 1.0f / MAX_ATLAS_Y);
         region->size = x * y * 4;
         region->data = data;
         region->atlas_index = texture_count;
@@ -391,6 +421,11 @@ internal void load_blocks() {
     }
 
     {
+        Block *block = &blocks[BLOCK_WOOD];
+        set_block_face_all(block, str8_lit("oak_planks.png"), 0);
+    }
+
+    {
         Block *block = &blocks[BLOCK_LEAVES];
         set_block_face_all(block, str8_lit("oak_leaves.png"), 3);
         block->flags |= BLOCK_FLAG_TRANSPARENT;
@@ -406,22 +441,107 @@ internal void load_blocks() {
     d3d11_upload_color_table();
 }
 
-internal bool raycast(Chunk_Manager *manager, World_Position start, Vector3 direction, Raycast_Result *result) {
+#define SIGN(x) (x > 0 ? 1 : (x < 0 ? -1 : 0))
+#define FRAC0(x) (x - floor(x))
+#define FRAC1(x) (1 - x + floor(x))
+
+internal bool voxel_raycast(Chunk_Manager *manager, V3_F64 origin, V3_F32 direction, f32 max_d, Voxel_Raycast *result) {
+    result->ray = make_ray(origin, direction);
+    result->hit = V3_Zero;
+    result->block = block_id_zero();
+    result->face = FACE_TOP;
+
+    f64 tMaxX, tMaxY, tMaxZ, tDeltaX, tDeltaY, tDeltaZ;
+    V3_S32 voxel;
+
+    f64 x1, y1, z1; // start point   
+    f64 x2, y2, z2; // end point   
+
+    V3_F64 end_p = origin;
+    end_p.x += (f64)direction.x * max_d;
+    end_p.y += (f64)direction.y * max_d;
+    end_p.z += (f64)direction.z * max_d;
+
+    x1 = origin.x;
+    y1 = origin.y;
+    z1 = origin.z;
+
+    x2 = end_p.x;
+    y2 = end_p.y;
+    z2 = end_p.z;
+
+    int dx = SIGN(x2 - x1);
+    if (dx != 0) tDeltaX = fmin(dx / (x2 - x1), 10000000.0); else tDeltaX = 10000000.0;
+    if (dx > 0) tMaxX = tDeltaX * FRAC1(x1); else tMaxX = tDeltaX * FRAC0(x1);
+    voxel.x = (int)x1;
+
+    int dy = SIGN(y2 - y1);
+    if (dy != 0) tDeltaY = fmin(dy / (y2 - y1), 10000000.0); else tDeltaY = 10000000.0;
+    if (dy > 0) tMaxY = tDeltaY * FRAC1(y1); else tMaxY = tDeltaY * FRAC0(y1);
+    voxel.y = (int)y1;
+
+    int dz = SIGN(z2 - z1);
+    if (dz != 0) tDeltaZ = fmin(dz / (z2 - z1), 10000000.0); else tDeltaZ = 10000000.0;
+    if (dz > 0) tMaxZ = tDeltaZ * FRAC1(z1); else tMaxZ = tDeltaZ * FRAC0(z1);
+    voxel.z = (int)z1;
+
+    while (true) {
+        if (tMaxX < tMaxY) {
+            if (tMaxX < tMaxZ) {
+                voxel.x += dx;
+                tMaxX += tDeltaX;
+                result->face = (dx < 0) ? FACE_EAST : FACE_WEST;
+            } else {
+                voxel.z += dz;
+                tMaxZ += tDeltaZ;
+                result->face = (dz < 0) ? FACE_NORTH : FACE_SOUTH;
+            }
+        } else {
+            if (tMaxY < tMaxZ) {
+                voxel.y += dy;
+                tMaxY += tDeltaY;
+                result->face = (dy < 0) ? FACE_TOP : FACE_BOTTOM;
+            } else {
+                voxel.z += dz;
+                tMaxZ += tDeltaZ;
+                result->face = (dz < 0) ? FACE_NORTH : FACE_SOUTH;
+            }
+        }
+        if (tMaxX > 1 && tMaxY > 1 && tMaxZ > 1) break;
+
+        // process voxel here
+        Block_ID *block = get_block_from_position(manager, voxel.x, voxel.y, voxel.z);
+        if (block_is_active(*block)) {
+            result->block = block;
+            result->hit.x = (f64)voxel.x;
+            result->hit.y = (f64)voxel.y;
+            result->hit.z = (f64)voxel.z;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*
+internal bool raycast(Chunk_Manager *manager, World_Position start, V3_F32 direction, Raycast_Result *result) {
+    const int max_t = 128;
+
     int step_x = (int)sign_f32(direction.x);
     int step_y = (int)sign_f32(direction.y);
     int step_z = (int)sign_f32(direction.z);
 
-    f32 next_bound_x = floor_f32(start.off.x + step_x);
-    f32 next_bound_y = floor_f32(start.off.y + step_y);
-    f32 next_bound_z = floor_f32(start.off.z + step_z);
+    f32 next_bound_x = (floor_f32(start.off.x + step_x));
+    f32 next_bound_y = (floor_f32(start.off.y + step_y));
+    f32 next_bound_z = (floor_f32(start.off.z + step_z));
 
-    f32 t_max_x = (next_bound_x - start.off.x) / direction.x;
-    f32 t_max_y = (next_bound_y - start.off.y) / direction.y;
-    f32 t_max_z = (next_bound_z - start.off.z) / direction.z;
+    f32 t_max_x = direction.x != 0.0f ? (next_bound_x - start.off.x) / direction.x : FLT_MAX;
+    f32 t_max_y = direction.y != 0.0f ? (next_bound_y - start.off.y) / direction.y : FLT_MAX;
+    f32 t_max_z = direction.z != 0.0f ? (next_bound_z - start.off.z) / direction.z : FLT_MAX;
 
-    f32 t_delta_x = direction.x != 0 ? (step_x / direction.x) : FLT_MAX;
-    f32 t_delta_y = direction.y != 0 ? (step_y / direction.y) : FLT_MAX;
-    f32 t_delta_z = direction.z != 0 ? (step_z / direction.z) : FLT_MAX;
+    f32 t_delta_x = direction.x != 0.0f ? (step_x / direction.x) : FLT_MAX;
+    f32 t_delta_y = direction.y != 0.0f ? (step_y / direction.y) : FLT_MAX;
+    f32 t_delta_z = direction.z != 0.0f ? (step_z / direction.z) : FLT_MAX;
 
     int x = 0;
     int y = 0;
@@ -431,40 +551,55 @@ internal bool raycast(Chunk_Manager *manager, World_Position start, Vector3 dire
     result->direction = direction;
     result->face = FACE_NORTH;
 
-    for (int t = 0; t < 128; t++) {
+    printf("RAYCAST START: (%d,%d,%d) (%.2f,%.2f, %.2f)\n", start.base.x, start.base.y, start.base.z, start.off.x, start.off.y, start.off.z);
+    printf("DIR:(%.2f,%.2f,%.2f)\n", direction.x, direction.y, direction.z);
+    printf("NEXT_BOUND:(%.2f,%.2f,%.2f)\n", next_bound_x, next_bound_y, next_bound_z);
+    printf("T_DELTA: (%.2f,%.2f,%.2f)\n", t_delta_x, t_delta_y, t_delta_z);
+    printf("STEP: (%d,%d,%d)\n", step_x, step_y, step_z);
+
+    for (int t = 0; t < max_t; t++) {
+        printf("T:%d T_MAX:(%.2f,%.2f,%.2f)\n", t, t_max_x, t_max_y, t_max_z);
+        printf("CURR:%d %d %d\n", x, y, z);
+
         if (t_max_x < t_max_y) {
             if (t_max_x < t_max_z) {
                 t_max_x += t_delta_x;
                 x += step_x;
+                result->face = (step_x < 0) ? FACE_EAST : FACE_WEST;
             } else {
                 t_max_z += t_delta_z;
                 z += step_z;
+                result->face = (step_z < 0) ? FACE_SOUTH : FACE_NORTH;
             }
         } else if (t_max_y < t_max_z) {
             t_max_y += t_delta_y;
             y += step_y;
+            result->face = (step_y < 0) ? FACE_TOP : FACE_BOTTOM;
         } else {
             t_max_z += t_delta_z;
             z += step_z;
+            result->face = (step_z < 0) ? FACE_SOUTH : FACE_NORTH;
         }
 
-        World_Position world_p = add_world_position(start, make_vector3(x, y, z));
+        World_Position world_p = add_world_position(start, make_v3_f32((f32)x, (f32)y, (f32)z));
         Block_ID *block = get_block_from_position(manager, world_p.base);
-        if (block && block_active(block)) {
-            result->end = world_p;
+        if (block_is_active(*block)) {
+            printf("RAYCAST END: (%d,%d,%d) (%f,%f,%f)\n", world_p.base.x, world_p.base.y, world_p.base.z, world_p.off.x, world_p.off.y, world_p.off.z);
+            result->end = make_world_position(world_p.base, V3_F32_Zero);
             return true;
         }
     }
 
     return false;
 }
+*/
 
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
     local_persist bool first_call = true;
     if (first_call) {
         first_call = false;
 
-        Vector2 dim = os_get_window_dim(window_handle);
+        V2_F32 dim = os_get_window_dim(window_handle);
 
         Arena *font_arena = arena_alloc(get_virtual_allocator(), MB(4));
         default_fonts[FONT_DEFAULT] = load_font(font_arena, str8_lit("data/assets/fonts/consolas.ttf"), 16);
@@ -474,6 +609,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         load_blocks();
 
         icon_tex = load_texture(str8_lit("data/assets/icons.png"));
+        sun_tex = load_texture(str8_lit("data/assets/environment/sun.png"));
 
         //@Note World Generator
         {
@@ -501,32 +637,36 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             chunk_manager->arena = arena;
         }
 
-        update_chunk_load_list(chunk_manager, Vector3Int_Zero);
+        update_chunk_load_list(chunk_manager, V3_Zero);
 
-        game_state->player->position = make_world_position(make_vector3int(0, get_height_from_chunk_xz(get_chunk_from_position(chunk_manager, Vector3Int_Zero), 0, 0) + 1, 0), Vector3_Zero);
+        game_state->player->position = V3_Zero;
 
         //@Note Camera
-        game_state->camera.up = make_vector3(0.f, 1.f, 0.f);
-        game_state->camera.right = make_vector3(1.f, 0.f, 0.f);
-        game_state->camera.forward = make_vector3(0.f, 0.f, -1.f);
+        game_state->camera.up = V3_Up;
+        game_state->camera.right = V3_Right;
+        game_state->camera.forward = V3_Back;
         //@Note Toward -Z axis
         game_state->camera.yaw = -90.0f;
         game_state->camera.pitch =  0.0f;
         game_state->camera.fov = 70.f;
         game_state->camera.aspect = 1024.0f/ 768.0f;
 
-        game_state->frustum = make_frustum(game_state->camera, 0.001f, 10000.0f);
+        game_state->frustum = make_frustum(game_state->camera, 0.001f, 1200.0f);
+
+        int seconds_per_day = 600;
+        game_state->ticks_per_second = 10;
+        game_state->day_t = 0;
     }
 
     input_begin(window_handle, event_list);
 
-    Vector2 dim = os_get_window_dim(window_handle);
-    game_state->client_dim = make_vector2int((s32)dim.x, (s32)dim.y);
+    V2_F32 dim = os_get_window_dim(window_handle);
+    game_state->client_dim = v2_s32((s32)dim.x, (s32)dim.y);
 
     ui_begin_build(dt, window_handle, event_list);
 
     //@Note Chunk update
-    Vector3Int chunk_position = get_chunk_position(game_state->player->position.base);
+    V3_S32 chunk_position = get_chunk_position(game_state->player->position);
     chunk_position.y = 0;
     if (chunk_position.x != chunk_manager->chunk_position.x || chunk_position.z != chunk_manager->chunk_position.z) {
         update_chunk_load_list(chunk_manager, chunk_position);
@@ -535,7 +675,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     f32 forward_dt = 0.0f;
     f32 right_dt = 0.0f;
-    
+    f32 up_dt = 0.0f;
     if (key_down(OS_KEY_A)) {
         right_dt -= 1.0f;
     }
@@ -548,6 +688,14 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     if (key_down(OS_KEY_S)) {
         forward_dt -= 1.0f;
     }
+    if (key_down(OS_KEY_Q)) {
+        up_dt += 1.0f;
+    }
+    if (key_down(OS_KEY_E)) {
+        up_dt -= 1.0f;
+    }
+
+    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &game_state->player->raycast);
 
     if (key_pressed(OS_KEY_F1)) {
         game_state->mesh_debug = !game_state->mesh_debug;
@@ -557,19 +705,18 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 
     if (key_pressed(OS_KEY_LEFTMOUSE)) {
-        if (game_state->raycast_hit) {
-            Block_ID *block = get_block_from_position(chunk_manager, game_state->raycast_result.end.base);
-            if (block && block_active(block)) {
-                *block = BLOCK_AIR;
-            }
-        }
+        block_place(game_state->player->raycast.block, BLOCK_AIR);
     }
 
     if (key_pressed(OS_KEY_RIGHTMOUSE)) {
-        if (game_state->raycast_hit) {
-            Block_ID *block = get_block_from_position(chunk_manager, add_world_position(game_state->raycast_result.end, Vector3_Up).base);
-            *block = BLOCK_LOG;
-        }
+        //@Note Interact
+        V3_F32 face_normal = v3_f32_from_face(game_state->player->raycast.face);
+        V3_F64 new_block_position = game_state->player->raycast.hit;
+        new_block_position.x += face_normal.x;
+        new_block_position.y += face_normal.y;
+        new_block_position.z += face_normal.z;
+        Block_ID *block = get_block_from_position(chunk_manager, (s32)new_block_position.x, (s32)new_block_position.y, (s32)new_block_position.z);
+        block_place(block, BLOCK_WOOD);
     }
 
     //@Note Player camera
@@ -580,13 +727,13 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         game_state->camera.pitch -= rotation_dp * get_mouse_delta().y * dt;
         game_state->camera.pitch = Clamp(game_state->camera.pitch, -89.0f, 89.0f);
 
-        Vector3 direction;
+        V3_F32 direction;
         direction.x = cosf(DegToRad(game_state->camera.yaw)) * cosf(DegToRad(game_state->camera.pitch));
         direction.y = sinf(DegToRad(game_state->camera.pitch));
         direction.z = sinf(DegToRad(game_state->camera.yaw)) * cosf(DegToRad(game_state->camera.pitch));
 
-        game_state->camera.forward = normalize_vector3(direction);
-        game_state->camera.right = normalize_vector3(cross_vector3(game_state->camera.forward, game_state->camera.up));
+        game_state->camera.forward = normalize_v3_f32(direction);
+        game_state->camera.right = normalize_v3_f32(cross_v3_f32(game_state->camera.forward, game_state->camera.up));
 
         game_state->camera.fov -= 5.0f * g_input.scroll_delta.y;
         game_state->camera.fov = Clamp(game_state->camera.fov, 1.0f, 60.0f);
@@ -595,17 +742,18 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     //@Note Player physics
     if (true) {
         Player *player = game_state->player;
-        player->velocity = Vector3_Zero;
+        player->velocity = V3_Zero;
         f32 speed = 10.0f;
 
         if (key_down(OS_KEY_SPACE)) {
             speed = 500.0f; 
         }
 
-        Vector3 direction = normalize_vector3(game_state->camera.forward * forward_dt + game_state->camera.right * right_dt);
-        Vector3 total_dp = speed * direction * dt;
-        player->position = add_world_position(player->position, total_dp);
+        V3_F32 direction = normalize_v3_f32(game_state->camera.forward * forward_dt + game_state->camera.right * right_dt + game_state->camera.up * up_dt);
+        V3_F32 distance = speed * direction * dt;
+        player->position += v3_f64(distance.x, distance.y, distance.z);
     }
+
 #if 0
     else {
         Player *player = game_state->player;
@@ -613,7 +761,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         f32 J = 25.f;
         f32 jump_time = 0.3f;
 
-        const Vector3 normals[6] = {
+        const V3_F32 normals[6] = {
             {0.f, 1.f, 0.f},
             {0.f, -1.f, 0.f},
             {1.f, 0.f, 0.f},
@@ -625,11 +773,11 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         //@Note Grounded
         player->grounded = false;
         {
-            Vector3 velocity = make_vector3(0.f, -0.1f, 0.f);
-            Vector3 new_position = player->position + velocity;
+            V3_F32 velocity = make_v3_f32(0.f, -0.1f, 0.f);
+            V3_F32 new_position = player->position + velocity;
             for (f32 t = 0.0f; t <= 1.0f; t += 1.0f/64.0f) {
-                Vector3 position = lerp_vector3(player->position, new_position, t);
-                Vector3 block_position = floor_vector3(position);
+                V3_F32 position = lerp_v3_f32(player->position, new_position, t);
+                V3_F32 block_position = floor_v3_f32(position);
 
                 b32 collides = is_block_active_at(chunk_manager, block_position);
                 if (collides) {
@@ -642,24 +790,24 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             }
         }
 
-        Vector3 new_velocity = player->velocity;
+        V3_F32 new_velocity = player->velocity;
         new_velocity.x = 0.f;
         new_velocity.z = 0.f;
-        Vector3 forward = make_vector3(game_state->camera.forward.x, 0.f, game_state->camera.forward.z);
+        V3_F32 forward = make_v3_f32(game_state->camera.forward.x, 0.f, game_state->camera.forward.z);
         new_velocity += 4.f * normalize(forward * forward_dt + game_state->camera.right * right_dt);
 
-        Vector3 new_position = player->position + player->velocity * dt;
+        V3_F32 new_position = player->position + player->velocity * dt;
         for (f32 t = 0.0f; t <= 1.0f; t += 1.0f/64.0f) {
-            Vector3 position = lerp_vector3(player->position, new_position, t);
-            Vector3 block_position = floor_vector3(position);
+            V3_F32 position = lerp_v3_f32(player->position, new_position, t);
+            V3_F32 block_position = floor_v3_f32(position);
             b32 collides = is_block_active_at(chunk_manager, block_position);
             if (collides) {
-                Vector3 direction = normalize(block_position - position);
+                V3_F32 direction = normalize(block_position - position);
 
                 f32 max_dot = 0.f;
                 int normal_idx = 0;
                 for (int i = 0; i < ArrayCount(normals); i++) {
-                    Vector3 normal = normals[i];
+                    V3_F32 normal = normals[i];
                     f32 d = dot(direction, normal);
                     if (d > max_dot) {
                         max_dot = d;   
@@ -669,7 +817,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
                 Assert(max_dot != 0.f);
 
-                Vector3 collision_normal = normals[normal_idx];
+                V3_F32 collision_normal = normals[normal_idx];
                 // printf("NORM: %f %f %f\n", collision_normal.x, collision_normal.y, collision_normal.z);
                 // printf("from %f,%f,%f", new_position.x, new_position.y, new_position.z);
                 new_position += max_dot * collision_normal * 0.01f;
@@ -708,32 +856,26 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 #endif
 
-    //@Todo Make camera position player position offset?
-    // So that basically we pass player position relative to the chunk so everything is in world space
-    game_state->camera.position = 0.5f * game_state->camera.forward + Vector3_Half;
-    // game_state->camera.position = -Vector3_Half;
-    game_state->camera.position.y += 1.f;
+    int ticks_elapsed = 10;
 
-    //@Note Update Frustum
-    game_state->frustum = make_frustum(game_state->camera, 0.001f, 1000.0f);
+    int seconds_per_day = 600;
+    game_state->ticks_per_day = seconds_per_day * game_state->ticks_per_second;
 
-    //@Note Raycast
-    game_state->raycast_hit = false;
-    {
-        Vector3 direction = game_state->camera.forward;
-        // World_Position start = add_world_position(game_state->player->position, make_vector3(-0.5f, 0.5f, 0.0f));
-        World_Position start = add_world_position(game_state->player->position, game_state->camera.position);
-
-        Raycast_Result ray = {};
-        if (raycast(chunk_manager, start, direction, &ray)) {
-            game_state->raycast_hit = true;
-            game_state->raycast_result = ray;
-        }
+    game_state->day_t += ticks_elapsed;
+    if (game_state->day_t > game_state->ticks_per_day) {
+        game_state->day_t = 0;
     }
 
-    Matrix4 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
-    Matrix4 projection  = perspective_projection_rh(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.001f, 1000.0f);
-    Matrix4 view = look_at_rh(game_state->camera.position, game_state->camera.position + game_state->camera.forward, game_state->camera.up);
+    //@Todo Make camera position player position offset?
+    // So that basically we pass player position relative to the chunk so everything is in world space
+    game_state->camera.position = game_state->player->position + 1.5f * v3_f64(0, 1, 0);
+
+    //@Note Update Frustum
+    game_state->frustum = make_frustum(game_state->camera, 0.01f, 1200.0f);
+
+    M4_F32 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
+    M4_F32 projection  = perspective_rh_zo(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.01f, 1200.0f);
+    M4_F32 view = look_at_rh_zo(v3_f32(game_state->camera.position), v3_f32(game_state->camera.position) + game_state->camera.forward, game_state->camera.up);
 
     draw_begin(window_handle);
 
@@ -741,19 +883,46 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@Note draw raycast block
     draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
-    if (game_state->raycast_hit) {
-        draw_cube(vector3_from_vector3int(game_state->raycast_result.end.base - game_state->player->position.base) - game_state->player->position.off, Rect_Zero, Vector4_One, FACE_MASK_NIL);
+    if (game_state->player->raycast.block != block_id_zero()) {
+        draw_cube(v3_f32(game_state->player->raycast.hit), Rect_Zero, V4_One, FACE_MASK_NIL);
+    }
+
+    //@Note Draw Sun Texture
+    //@Note Billboards
+    draw_3d_mesh_begin(projection, view, sun_tex, R_RasterizerState_Text);
+    {
+        V3_F32 position = V3_Zero;
+        position.x = 0.0f;
+        position.y = sinf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
+        position.z = cosf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
+        position *= 100.0f;
+
+        V3_F32 right = v3_f32(view._00, view._10, view._20);
+        V3_F32 up = v3_f32(view._01, view._11, view._21);
+        f32 size = 50.0f;
+        V3_F32 tl = position - 0.5f * size * right + 0.5f * size * up;
+        V3_F32 bl = position - 0.5f * size * right - 0.5f * size * up;
+        V3_F32 tr = position + 0.5f * size * right + 0.5f * size * up;
+        V3_F32 br = position + 0.5f * size * right - 0.5f * size * up;
+        // V3_F32 left = position - size * camera.right;
+        // V3_F32 right = position + size * camera.right;
+        // V3_F32 top = position + size * camera.up;
+        // V3_F32 bottom = position - size * camera.up;
+        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
+        draw_3d_vertex(br, V4_One, v2_f32(1.0f, 1.0f));
+        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
+        draw_3d_vertex(tl, V4_One, v2_f32(0.0f, 0.0f));
     }
 
     draw_set_xform(ortho_projection);
     draw_quad(icon_tex, make_rect(0.5f*dim.x - 16.f, 0.5f*dim.y - 16.f, 32.f, 32.f), make_rect(0.0f, 0.0f, 64.0f/1024.0f, 64.0f/1024.0f));
 
     //@Note Hot bar
-    // Vector2 hotbar_dim = make_vector2(450.0f, 50.0f);
+    // V2_F32 hotbar_dim = make_v2_f32(450.0f, 50.0f);
     // Rect hotbar_rect = make_rect((dim.x - hotbar_dim.x) * 0.5f, 0.f, hotbar_dim.x, hotbar_dim.y);
     // Rect src = make_rect(0.f, 5.f/16.f, 1.f/16.f, 1.f/16.f);
-    // draw_rect(hotbar_rect, make_vector4(0.f, 0.f, 0.f, 1.f));
-    // Vector2 slot_dim = make_vector2(hotbar_dim.x / (f32)HOTBAR_SLOTS, hotbar_dim.y);
+    // draw_rect(hotbar_rect, make_v4_f32(0.f, 0.f, 0.f, 1.f));
+    // V2_F32 slot_dim = make_v2_f32(hotbar_dim.x / (f32)HOTBAR_SLOTS, hotbar_dim.y);
     // for (int i = 0; i < HOTBAR_SLOTS; i++) {
     //     Texture_Atlas *atlas = g_block_atlas;
     //     Block *block = &g_basic_blocks[BLOCK_DIRT];
@@ -761,14 +930,24 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     //     Rect src = make_rect(face->texture_region->offset.x / (f32)atlas->dim.x, face->texture_region->offset.y / (f32)atlas->dim.y, face->texture_region->dim.x / (f32)atlas->dim.x, face->texture_region->dim.y / (f32)atlas->dim.y);
     //     Rect rect = make_rect(hotbar_rect.x0 + slot_dim.x * i, hotbar_rect.y0, slot_dim.x, slot_dim.y);
     //     draw_quad(g_block_atlas->tex_handle, rect, src);
-    //     draw_rect_outline(rect, make_vector4(1.f, 1.f, 1.f, 1.f));
+    //     draw_rect_outline(rect, make_v4_f32(1.f, 1.f, 1.f, 1.f));
     // }
-    // draw_rect_outline(hotbar_rect, make_vector4(1.f, 1.f, 1.f, 1.f));
+    // draw_rect_outline(hotbar_rect, make_v4_f32(1.f, 1.f, 1.f, 1.f));
 
     //@DEBUG
-    ui_labelf("delta: %fms", 1000.0 * dt);
-    ui_labelf("world:%d %d %d offset: %f %f %f chunk:%d %d %d", game_state->player->position.base.x, game_state->player->position.base.y, game_state->player->position.base.z, game_state->player->position.off.x, game_state->player->position.off.y, game_state->player->position.off.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+    ui_labelf("delta: %.4fms", 1000.0 * dt);
+    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
     ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
+
+    {
+        char *str = NULL;
+        if (game_state->player->raycast.block != block_id_zero()) {
+            Block_ID *block = get_block_from_position(chunk_manager, (s32)game_state->player->raycast.hit.x, (s32)game_state->player->raycast.hit.y, (s32)game_state->player->raycast.hit.z);
+            if (block) str = block_to_string(*block);
+        }
+        ui_labelf("selected block:%s face: %s", str, face_to_string(game_state->player->raycast.face));
+    }
+
     // ui_labelf("vertices %d", mesh_vertices_this_frame);
     // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
     // ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);

@@ -11,15 +11,15 @@ EnumDefineFlagOperators(Button_State);
 struct Input {
     Button_State buttons[OS_KEY_COUNT];
 
-    Vector2Int mouse_position;
-    Vector2Int last_mouse_position;
+    V2_S32 mouse_position;
+    V2_S32 last_mouse_position;
 
-    Vector2Int mouse_drag_start;
+    V2_S32 mouse_drag_start;
     b32 mouse_dragging;
 
-    Vector2Int scroll_delta;
+    V2_S32 scroll_delta;
 
-    Vector2Int client_dim;
+    V2_S32 client_dim;
 };
 
 internal void input_begin(OS_Handle window_handle, OS_Event *events);

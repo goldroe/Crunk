@@ -114,6 +114,137 @@ enum Axis2 {
     Axis_COUNT,
 };
 
+union V2_S32 {
+    struct {
+        s32 x, y;
+    };
+    int e[2];
+    int& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V2_S64 {
+    struct {
+        s64 x, y;
+    };
+    s64 e[2];
+    s64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V3_S32 {
+    struct {
+        s32 x, y, z;
+    };
+    int e[3];
+    int& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V3_S64 {
+    struct {
+        s64 x, y, z;
+    };
+    s64 e[3];
+    s64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V4_S32 {
+    struct {
+        s32 x, y, z, w;
+    };
+    s32 e[4];
+    s32& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V4_S64 {
+    struct {
+        s64 x, y, z, w;
+    };
+    s64 e[4];
+    s64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V2_F32 {
+    struct {
+        f32 x, y;
+    };
+    f32 e[2];
+    f32& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V2_F64 {
+    struct {
+        f64 x, y;
+    };
+    f64 e[2];
+    f64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V3_F32 {
+    struct {
+        f32 x, y, z;
+    };
+    f32 e[3];
+    f32& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V3_F64 {
+    struct {
+        f64 x, y, z;
+    };
+    f64 e[3];
+    f64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V4_F32 {
+    struct {
+        f32 x, y, z, w;
+    };
+    f32 e[4];
+    f32& operator[](int index) {
+        return e[index];
+    }
+};
+
+union V4_F64 {
+    struct {
+        f64 x, y, z, w;
+    };
+    f64 e[4];
+    f64& operator[](int index) {
+        return e[index];
+    }
+};
+
+union M4_F32 {
+    V4_F32 columns[4];
+    struct {
+        f32 _00, _01, _02, _03;
+        f32 _10, _11, _12, _13;
+        f32 _20, _21, _22, _23;
+        f32 _30, _31, _32, _33;
+    };
+    f32 e[4][4];
+};
+
 struct Txt_Pos {
     u64 col;
     u64 line;
@@ -135,116 +266,13 @@ union Rng_S64 {
     s64 v[2];
 };
 
-union Vector2Int {
-    struct {
-        int x;
-        int y;
-    };
-    int e[2];
-    int& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector2Int64 {
-    struct {
-        s64 x;
-        s64 y;
-    };
-    s64 e[2];
-    s64& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector3Int {
-    struct {
-        int x;
-        int y;
-        int z;
-    };
-    int e[3];
-    int& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector3Int64 {
-    struct {
-        s64 x;
-        s64 y;
-        s64 z;
-    };
-    s64 e[3];
-    s64& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector4Int {
-    struct {
-        int x;
-        int y;
-        int z;
-        int w;
-    };
-    int e[4];
-    int& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector2 {
-    struct {
-        f32 x, y;
-    };
-    f32 e[2];
-
-    f32& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector3 {
-    struct {
-        f32 x, y, z;
-    };
-    f32 e[3];
-
-    f32& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Vector4 {
-    struct {
-        f32 x, y, z, w;
-    };
-    f32 e[4];
-
-    f32& operator[](int index) {
-        return e[index];
-    }
-};
-
-union Matrix4 {
-    struct {
-        f32 _00, _01, _02, _03;
-        f32 _10, _11, _12, _13;
-        f32 _20, _21, _22, _23;
-        f32 _30, _31, _32, _33;
-    };
-    f32 e[16];
-    Vector4 columns[4];
-};
-
 union Rect {
     struct {
         f32 x0, y0, x1, y1;
     };
     struct {
-        Vector2 p0;
-        Vector2 p1;
+        V2_F32 p0;
+        V2_F32 p1;
     };
 };
 

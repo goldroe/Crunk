@@ -318,8 +318,8 @@ internal DXGI_FORMAT dxgi_from_r_format(R_Tex2D_Format format) {
     return result;
 }
 
-internal Vector2Int r_texture_size(R_Handle handle) {
-    Vector2Int result = make_vector2int(0, 0);
+internal V2_S32 r_texture_size(R_Handle handle) {
+    V2_S32 result = v2_s32(0, 0);
     R_D3D11_Tex2D *tex = (R_D3D11_Tex2D *)handle;
     if (tex) {
         result = tex->size;
@@ -340,7 +340,7 @@ internal u32 r_format_size(R_Tex2D_Format format) {
     return result;
 }
 
-internal R_Handle d3d11_create_texture_mipmap(R_Tex2D_Format format, Vector2Int size, u8 *data) {
+internal R_Handle d3d11_create_texture_mipmap(R_Tex2D_Format format, V2_S32 size, u8 *data) {
     HRESULT hr = S_OK;
     D3D11_TEXTURE2D_DESC desc = {};
     desc.Width = size.x;
@@ -382,7 +382,7 @@ internal R_Handle d3d11_create_texture_mipmap(R_Tex2D_Format format, Vector2Int 
     return result;
 }
 
-internal R_Handle d3d11_create_texture(R_Tex2D_Format format, Vector2Int size, u8 *data) {
+internal R_Handle d3d11_create_texture(R_Tex2D_Format format, V2_S32 size, u8 *data) {
     R_Handle result = {0};
     D3D11_TEXTURE2D_DESC desc{};
     desc.Width = size.x;
@@ -485,12 +485,12 @@ internal void d3d11_resize_render_target_view(UINT width, UINT height) {
 
 inline internal u8 get_chunk_face_mask(Chunk *chunk, int x, int y, int z) {
     u8 face_mask = 0;
-    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_is_opaque(BLOCK_AT(chunk, x, y + 1, z));
-    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_is_opaque(BLOCK_AT(chunk, x, y - 1, z));
-    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_is_opaque(BLOCK_AT(chunk, x, y, z + 1));
-    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_is_opaque(BLOCK_AT(chunk, x, y, z - 1));
-    if (x > 0)              face_mask |= FACE_MASK_WEST*block_is_opaque(BLOCK_AT(chunk, x - 1, y, z));
-    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_is_opaque(BLOCK_AT(chunk, x + 1, y, z));
+    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_is_opaque(*block_at(chunk, x, y + 1, z));
+    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_is_opaque(*block_at(chunk, x, y - 1, z));
+    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_is_opaque(*block_at(chunk, x, y, z + 1));
+    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_is_opaque(*block_at(chunk, x, y, z - 1));
+    if (x > 0)              face_mask |= FACE_MASK_WEST*block_is_opaque(*block_at(chunk, x - 1, y, z));
+    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_is_opaque(*block_at(chunk, x + 1, y, z));
     return face_mask;
 }
 
@@ -503,8 +503,8 @@ inline internal u64 make_block_vertex_data(Face face, u8 x, u8 y, u8 z, u8 tex, 
     return result;
 }
 
-inline internal Vector3 vector3_from_block_data(u64 data) {
-    Vector3 result;
+inline internal V3_F32 v3_f32_from_block_data(u64 data) {
+    V3_F32 result;
     result.x = (f32)((data >> 8)  & 0xFF);
     result.y = (f32)((data >> 16) & 0xFF);
     result.z = (f32)((data >> 24) & 0xFF);
@@ -513,28 +513,27 @@ inline internal Vector3 vector3_from_block_data(u64 data) {
 
 internal void d3d11_upload_block_atlas(Texture_Atlas *atlas) {
     HRESULT hr = S_OK;
-    //@Note UV buffer
-    Vector2 *uv_array = (Vector2 *)malloc(4 * atlas->texture_region_count * sizeof(Vector2));
+    V2_F32 *uv_array = (V2_F32 *)malloc(4 * atlas->texture_region_count * sizeof(V2_F32));
     int region_count = 0;
     for (int region_bucket_idx = 0; region_bucket_idx < atlas->region_hash_table_size; region_bucket_idx++) {
         Texture_Region_Bucket *bucket = &atlas->region_hash_table[region_bucket_idx];
         for (Texture_Region *region = bucket->first; region; region = region->hash_next) {
             int region_idx = region->atlas_index;
-            uv_array[region_idx * 4 + 0] = region->offset + make_vector2(0.0f, region->dim.y);
-            uv_array[region_idx * 4 + 1] = region->offset + make_vector2(region->dim.x, region->dim.y);
-            uv_array[region_idx * 4 + 2] = region->offset + make_vector2(region->dim.x, 0.0f);
-            uv_array[region_idx * 4 + 3] = region->offset + make_vector2(0.0f, 0.0f);
+            uv_array[region_idx * 4 + 0] = region->offset + v2_f32(0.0f, region->dim.y);
+            uv_array[region_idx * 4 + 1] = region->offset + v2_f32(region->dim.x, region->dim.y);
+            uv_array[region_idx * 4 + 2] = region->offset + v2_f32(region->dim.x, 0.0f);
+            uv_array[region_idx * 4 + 3] = region->offset + v2_f32(0.0f, 0.0f);
         }
     }
     ID3D11Buffer *uv_buffer = NULL;
     ID3D11ShaderResourceView *uv_srv = NULL;
     {
         D3D11_BUFFER_DESC desc{};
-        desc.ByteWidth = (UINT)(4 * atlas->texture_region_count * sizeof(Vector2));
+        desc.ByteWidth = (UINT)(4 * atlas->texture_region_count * sizeof(V2_F32));
         desc.Usage = D3D11_USAGE_DEFAULT;
         desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS|D3D11_BIND_SHADER_RESOURCE;
         desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-        desc.StructureByteStride = sizeof(Vector2);
+        desc.StructureByteStride = sizeof(V2_F32);
         D3D11_SUBRESOURCE_DATA res{};
         res.pSysMem = uv_array;
         hr = r_d3d11_state->device->CreateBuffer(&desc, &res, &uv_buffer);
@@ -546,7 +545,6 @@ internal void d3d11_upload_block_atlas(Texture_Atlas *atlas) {
 
 internal void d3d11_upload_color_table() {
     HRESULT hr = S_OK;
-    //@Note Color table buffer
     ID3D11Buffer *color_table_buffer = NULL;
     ID3D11ShaderResourceView *color_table_srv = NULL;
     {
@@ -569,21 +567,21 @@ internal void fill_chunk_geometry(Chunk *chunk, Auto_Array<u64> &vertices, bool 
     for (int z = 0; z < CHUNK_SIZE; z++) {
         for (int y = 0; y < CHUNK_HEIGHT; y++) {
             for (int x = 0; x < CHUNK_SIZE; x++) {
-                Block_ID *block = BLOCK_AT(chunk, x, y, z);
+                Block_ID *block = block_at(chunk, x, y, z);
                 Block *basic_block = get_basic_block(*block);
 
-                if (block_active(block) && (opaque == block_is_opaque(basic_block))) {
+                if (block_is_active(*block) && (opaque == block_is_opaque(basic_block))) {
                     u8 face_mask = get_chunk_face_mask(chunk, x, y, z);
 
                     const int S = 1;
-                    Vector3Int p0 = make_vector3int(x,     y,     z + S);
-                    Vector3Int p1 = make_vector3int(x + S, y,     z + S);
-                    Vector3Int p2 = make_vector3int(x + S, y + S, z + S);
-                    Vector3Int p3 = make_vector3int(x,     y + S, z + S);
-                    Vector3Int p4 = make_vector3int(x,     y,     z);
-                    Vector3Int p5 = make_vector3int(x + S, y,     z);
-                    Vector3Int p6 = make_vector3int(x + S, y + S, z);
-                    Vector3Int p7 = make_vector3int(x,     y + S, z);
+                    V3_S32 p0 = v3_s32(x,     y,     z + S);
+                    V3_S32 p1 = v3_s32(x + S, y,     z + S);
+                    V3_S32 p2 = v3_s32(x + S, y + S, z + S);
+                    V3_S32 p3 = v3_s32(x,     y + S, z + S);
+                    V3_S32 p4 = v3_s32(x,     y,     z);
+                    V3_S32 p5 = v3_s32(x + S, y,     z);
+                    V3_S32 p6 = v3_s32(x + S, y + S, z);
+                    V3_S32 p7 = v3_s32(x,     y + S, z);
 
                     if (!(face_mask & FACE_MASK_TOP)) {
                         Block_Face *face = &basic_block->faces[FACE_TOP];
@@ -663,6 +661,7 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
     r_d3d11_state->device_context->RSSetViewports(1, &viewport);
 
     float clear_color[4] = {0.62f, 0.79f, 0.94f, 1.0f};
+    // float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     r_d3d11_state->device_context->ClearRenderTargetView(r_d3d11_state->render_target_view, clear_color);
     r_d3d11_state->device_context->ClearDepthStencilView(r_d3d11_state->depth_stencil_view, D3D11_CLEAR_DEPTH|D3D11_CLEAR_STENCIL, 1.0f, 0);
 
@@ -742,18 +741,17 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
             D3D11_Uniform_BlocksPerChunk chunk_uniform = {};
 
-            World_Position origin = params_blocks->position;
+            V3_F64 origin = params_blocks->position;
 
             //@Note Cull chunks
-            Vector3 chunk_size = make_vector3(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
+            V3_F32 chunk_size = v3_f32(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
             Auto_Array<Chunk*> sorted_chunks;
             sorted_chunks.reserve(params_blocks->chunks.count);
             for (Chunk *chunk = params_blocks->chunks.first; chunk; chunk = chunk->next) {
-                Vector3 chunk_position = vector3_from_vector3int(chunk->position - get_chunk_position(origin.base));
+                V3_F32 chunk_position = v3_f32_from_v3_s32(chunk->position);
                 chunk_position.x *= CHUNK_SIZE;
                 chunk_position.y *= CHUNK_HEIGHT;
                 chunk_position.z *= CHUNK_SIZE;
-                // chunk_position += origin.off;
                 AABB chunk_aabb = make_aabb(chunk_position, chunk_size);
                 if (aabb_in_frustum(params_blocks->frustum, chunk_aabb)) {
                     sorted_chunks.push(chunk);
@@ -763,15 +761,15 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             //@Note Sort chunks
             for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
-                Vector3Int chunk_position = chunk->position - origin.base;
-                Vector3 center = 0.5f * make_vector3(chunk_position.x * chunk_size.x, chunk_position.y * chunk_size.y, chunk_position.z * chunk_size.z);
+                V3_S32 chunk_position = chunk->position;// - origin;
+                V3_F32 center = 0.5f * v3_f32(chunk_position.x * chunk_size.x, chunk_position.y * chunk_size.y, chunk_position.z * chunk_size.z);
                 f32 distance = length2(center);
 
                 int j = i - 1;
                 while (j >= 0) {
                     Chunk *chunk_j = sorted_chunks[j + 1];
-                    Vector3Int chunk_position_j = chunk_j->position - origin.base;
-                    Vector3 center_j = 0.5f * make_vector3(chunk_position_j.x * chunk_size.x, chunk_position_j.y * chunk_size.y, chunk_position_j.z * chunk_size.z);
+                    V3_S32 chunk_position_j = chunk_j->position;
+                    V3_F32 center_j = 0.5f * v3_f32(chunk_position_j.x * chunk_size.x, chunk_position_j.y * chunk_size.y, chunk_position_j.z * chunk_size.z);
                     f32 distance_j = length(center_j);
                     if (distance < distance_j) {
                         sorted_chunks[j + 1] = sorted_chunks[j];
@@ -791,14 +789,12 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             //@Note Render Opaque Blocks
             for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
-                Vector3Int chunk_world_position = chunk->position;
-                chunk_world_position.x *= CHUNK_SIZE;
-                chunk_world_position.y *= CHUNK_HEIGHT;
-                chunk_world_position.z *= CHUNK_SIZE;
-                chunk_world_position = chunk_world_position - origin.base;
+                V4_S32 chunk_world_position = V4_Zero;
+                chunk_world_position.x = chunk->position.x * CHUNK_SIZE;
+                chunk_world_position.y = chunk->position.y * CHUNK_HEIGHT;
+                chunk_world_position.z = chunk->position.z * CHUNK_SIZE;
 
-                chunk_uniform.world_position_off = make_vector4(origin.off.x, origin.off.y, origin.off.z, 0);
-                chunk_uniform.world_position = make_vector4int(chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0);
+                chunk_uniform.world_position = chunk_world_position;
 
                 fill_chunk_geometry(chunk, vertices, true);
 
@@ -812,22 +808,19 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 vertices.reset_count();
                 if (vertex_buffer) vertex_buffer->Release();
             }
-
             r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
 
             //@Note Render Transparent Blocks
-            // Auto_Array<Vector3> blocK_positions;
+            // Auto_Array<V3_F32> blocK_positions;
             // blocK_position.reserve(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
             for (int chunk_idx = 0; chunk_idx < sorted_chunks.count; chunk_idx++) {
                 Chunk *chunk = sorted_chunks[chunk_idx];
-                Vector3Int chunk_world_position = chunk->position;
-                chunk_world_position.x *= CHUNK_SIZE;
-                chunk_world_position.y *= CHUNK_HEIGHT;
-                chunk_world_position.z *= CHUNK_SIZE;
-                chunk_world_position = chunk_world_position - origin.base;
+                V4_S32 chunk_world_position = V4_Zero;
+                chunk_world_position.x = chunk->position.x * CHUNK_SIZE;
+                chunk_world_position.y = chunk->position.y * CHUNK_HEIGHT;
+                chunk_world_position.z = chunk->position.z * CHUNK_SIZE;
 
-                chunk_uniform.world_position_off = make_vector4(origin.off.x, origin.off.y, origin.off.z, 0);
-                chunk_uniform.world_position = make_vector4int(chunk_world_position.x, chunk_world_position.y, chunk_world_position.z, 0);
+                chunk_uniform.world_position = chunk_world_position;
 
                 fill_chunk_geometry(chunk, vertices, false);
 
@@ -835,11 +828,11 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 //@Error Sorts each vertex of the block, need to sort by cube center
                 // for (s64 i = 0; i < (s64)vertices.count; i++) {
                 //     u64 val = vertices[i];
-                //     Vector3 v = Vector3_from_block_data(val);
+                //     V3_F32 v = V3_F32_from_block_data(val);
                 //     f32 len = length2(v - origin);
                 //     s64 j = i - 1;
                 //     while (j >= 0) {
-                //         Vector3 v_1 = Vector3_from_block_data(vertices[j]);
+                //         V3_F32 v_1 = V3_F32_from_block_data(vertices[j]);
                 //         if (len < length2(v_1 - origin)) {
                 //             vertices[j+1] = vertices[j];
                 //             j--;
