@@ -660,8 +660,8 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
     viewport.MaxDepth = 1.0f;
     r_d3d11_state->device_context->RSSetViewports(1, &viewport);
 
-    float clear_color[4] = {0.62f, 0.79f, 0.94f, 1.0f};
-    // float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    // float clear_color[4] = {0.62f, 0.79f, 0.94f, 1.0f};
+    float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     r_d3d11_state->device_context->ClearRenderTargetView(r_d3d11_state->render_target_view, clear_color);
     r_d3d11_state->device_context->ClearDepthStencilView(r_d3d11_state->depth_stencil_view, D3D11_CLEAR_DEPTH|D3D11_CLEAR_STENCIL, 1.0f, 0);
 
@@ -696,6 +696,48 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             Assert(0);
             break;
 
+        case R_ParamsKind_Sun:
+        {
+            R_Params_Sun *params_sun = params.params_sun;
+            R_3D_Vertex *vertices = (R_3D_Vertex *)batch.v;
+            int vertex_count = batch.bytes / sizeof(R_3D_Vertex);
+            r_d3d11_state->device_context->RSSetState(r_d3d11_state->rasterizer_states[R_RasterizerState_Default]);
+            r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Draw], NULL, 0xffffffff);
+
+            r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Point]);
+            r_d3d11_state->device_context->OMSetDepthStencilState(r_d3d11_state->depth_stencil_states[R_DepthState_Default], 0);
+            r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Sun]);
+
+            R_Handle tex = params_sun->tex;
+            if (tex == 0) {
+                tex = r_d3d11_state->fallback_tex;
+            }
+            R_D3D11_Tex2D *tex2d = (R_D3D11_Tex2D *)tex;
+            r_d3d11_state->device_context->PSSetShaderResources(0, 1, &tex2d->view);
+
+            ID3D11VertexShader *vertex_shader = r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Sun];
+            ID3D11PixelShader *pixel_shader = r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Sun];
+            r_d3d11_state->device_context->VSSetShader(vertex_shader, NULL, 0);
+            r_d3d11_state->device_context->PSSetShader(pixel_shader, NULL, 0);
+
+            ID3D11Buffer *sun_uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_UniformKind_Sun];
+            r_d3d11_state->device_context->VSSetConstantBuffers(0, 1, &sun_uniform_buffer);
+
+            D3D11_Uniform_Sun sun_uniform = {};
+            sun_uniform.xform = params_sun->projection * params_sun->view;
+            d3d11_upload_uniform(sun_uniform_buffer, (void *)&sun_uniform, sizeof(D3D11_Uniform_Sun));
+
+            ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices, vertex_count * sizeof(R_3D_Vertex));
+
+            UINT offset = 0, stride = sizeof(R_3D_Vertex);
+            r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+
+            r_d3d11_state->device_context->Draw(vertex_count, 0);
+            if (vertex_buffer) vertex_buffer->Release();
+            break;
+        }
+
         case R_ParamsKind_Blocks:
         {
             // r_d3d11_state->device_context->End(start_query);
@@ -709,7 +751,6 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             R_Depth_State_Kind depth_state = R_DepthState_Default;
             if (params_blocks->rasterizer == R_RasterizerState_Wireframe) depth_state = R_DepthState_Wireframe;
             r_d3d11_state->device_context->OMSetDepthStencilState(r_d3d11_state->depth_stencil_states[depth_state], 0);
-
             r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
 
@@ -1270,8 +1311,16 @@ internal void d3d11_render_initialize(HWND window_handle) {
     D3D11_INPUT_ELEMENT_DESC blocks_ilay[] = {
         { "BLOCK_DATA", 0, DXGI_FORMAT_R32G32_UINT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
-
     d3d11_make_shader_from_file(str8_lit("data/shaders/block.hlsl"), "vs_main", "ps_main", blocks_ilay, ArrayCount(blocks_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Blocks], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Blocks], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Blocks]);
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_Blocks] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Blocks));
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_BlocksPerChunk] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_BlocksPerChunk));
+
+
+    D3D11_INPUT_ELEMENT_DESC sun_ilay[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(R_3D_Vertex, pos),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_3D_Vertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(R_3D_Vertex, tex),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
+    d3d11_make_shader_from_file(str8_lit("data/shaders/sun.hlsl"), "vs_main", "ps_main", sun_ilay, ArrayCount(sun_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Sun], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Sun], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Sun]);
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_Sun] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Sun));
 }

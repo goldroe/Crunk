@@ -17,6 +17,7 @@ enum D3D11_Shader_Kind {
     D3D11_ShaderKind_Quad,
     D3D11_ShaderKind_Mesh,
     D3D11_ShaderKind_Blocks,
+    D3D11_ShaderKind_Sun,
     D3D11_ShaderKind_COUNT
 };
 
@@ -26,6 +27,7 @@ enum D3D11_Uniform_Kind {
     D3D11_UniformKind_Mesh,
     D3D11_UniformKind_Blocks,
     D3D11_UniformKind_BlocksPerChunk,
+    D3D11_UniformKind_Sun,
     D3D11_UniformKind_COUNT
 };
 
@@ -49,6 +51,10 @@ struct D3D11_Uniform_Blocks {
 struct D3D11_Uniform_BlocksPerChunk {
     V4_S32 world_position;
     V4_F32 world_position_off;
+};
+
+struct D3D11_Uniform_Sun {
+    M4_F32 xform;
 };
 
 struct R_D3D11_State {

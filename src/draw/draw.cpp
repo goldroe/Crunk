@@ -503,3 +503,16 @@ internal void draw_cube(V3_F32 position, Rect src, V4_F32 color, u8 face_mask) {
 //     // draw_3d_vertex(plane.v[2], color, src);
 //     // draw_3d_vertex(plane.v[3], color, src);
 // }
+
+internal void draw_sun(M4_F32 projection, M4_F32 view, R_Handle tex) {
+    R_Batch_Node *node = push_array(draw_arena, R_Batch_Node, 1);
+    draw_push_batch_node(&draw_bucket->batches, node);
+
+    node->batch.params.kind = R_ParamsKind_Sun;
+    node->batch.params.params_sun = push_array(draw_arena, R_Params_Sun, 1);
+    R_Params_Sun *params = node->batch.params.params_sun;
+    params->view = view;
+    params->projection = projection;
+    params->tex = tex;
+    node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
+}

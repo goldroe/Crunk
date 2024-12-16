@@ -808,39 +808,39 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     draw_begin(window_handle);
 
+    //@Note Draw Sun Texture
+    draw_sun(projection, view, sun_tex);
+    {
+        V3_F32 position = V3_Zero;
+        position.x = 0.0f;
+        position.y = sinf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
+        position.z = cosf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
+        position *= 1000.0f;
+        position += v3_f32(game_state->player->position);
+
+        V3_F32 right = v3_f32(view._00, view._10, view._20);
+        V3_F32 up = v3_f32(view._01, view._11, view._21);
+        f32 size = 400.0f;
+        V3_F32 tl = position - 0.5f * size * right + 0.5f * size * up;
+        V3_F32 bl = position - 0.5f * size * right - 0.5f * size * up;
+        V3_F32 tr = position + 0.5f * size * right + 0.5f * size * up;
+        V3_F32 br = position + 0.5f * size * right - 0.5f * size * up;
+
+        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
+        draw_3d_vertex(br, V4_One, v2_f32(1.0f, 1.0f));
+        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
+
+        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
+        draw_3d_vertex(tl, V4_One, v2_f32(0.0f, 0.0f));
+        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
+    }
+
     draw_chunks(chunk_manager->loaded_chunks, game_state->player->position, game_state->frustum, projection, view, g_block_atlas, game_state->mesh_debug ? R_RasterizerState_Wireframe : R_RasterizerState_Default);
 
     //@Note draw raycast block
     draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
     if (game_state->player->raycast.block != block_id_zero()) {
         draw_cube(v3_f32(game_state->player->raycast.hit), Rect_Zero, V4_One, FACE_MASK_NIL);
-    }
-
-    //@Note Draw Sun Texture
-    //@Note Billboards
-    draw_3d_mesh_begin(projection, view, sun_tex, R_RasterizerState_Text);
-    {
-        V3_F32 position = V3_Zero;
-        position.x = 0.0f;
-        position.y = sinf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
-        position.z = cosf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
-        position *= 100.0f;
-
-        V3_F32 right = v3_f32(view._00, view._10, view._20);
-        V3_F32 up = v3_f32(view._01, view._11, view._21);
-        f32 size = 50.0f;
-        V3_F32 tl = position - 0.5f * size * right + 0.5f * size * up;
-        V3_F32 bl = position - 0.5f * size * right - 0.5f * size * up;
-        V3_F32 tr = position + 0.5f * size * right + 0.5f * size * up;
-        V3_F32 br = position + 0.5f * size * right - 0.5f * size * up;
-        // V3_F32 left = position - size * camera.right;
-        // V3_F32 right = position + size * camera.right;
-        // V3_F32 top = position + size * camera.up;
-        // V3_F32 bottom = position - size * camera.up;
-        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
-        draw_3d_vertex(br, V4_One, v2_f32(1.0f, 1.0f));
-        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
-        draw_3d_vertex(tl, V4_One, v2_f32(0.0f, 0.0f));
     }
 
     draw_set_xform(ortho_projection);
