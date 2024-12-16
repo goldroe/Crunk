@@ -458,9 +458,9 @@ internal bool voxel_raycast(Chunk_Manager *manager, V3_F64 origin, V3_F32 direct
     f64 x2, y2, z2; // end point   
 
     V3_F64 end_p = origin;
-    end_p.x += (f64)direction.x * max_d;
-    end_p.y += (f64)direction.y * max_d;
-    end_p.z += (f64)direction.z * max_d;
+    end_p.x += (f64)(direction.x * max_d);
+    end_p.y += (f64)(direction.y * max_d);
+    end_p.z += (f64)(direction.z * max_d);
 
     x1 = origin.x;
     y1 = origin.y;
@@ -473,17 +473,17 @@ internal bool voxel_raycast(Chunk_Manager *manager, V3_F64 origin, V3_F32 direct
     int dx = SIGN(x2 - x1);
     if (dx != 0) tDeltaX = fmin(dx / (x2 - x1), 10000000.0); else tDeltaX = 10000000.0;
     if (dx > 0) tMaxX = tDeltaX * FRAC1(x1); else tMaxX = tDeltaX * FRAC0(x1);
-    voxel.x = (int)x1;
+    voxel.x = (int)floor(x1);
 
     int dy = SIGN(y2 - y1);
     if (dy != 0) tDeltaY = fmin(dy / (y2 - y1), 10000000.0); else tDeltaY = 10000000.0;
     if (dy > 0) tMaxY = tDeltaY * FRAC1(y1); else tMaxY = tDeltaY * FRAC0(y1);
-    voxel.y = (int)y1;
+    voxel.y = (int)floor(y1);
 
     int dz = SIGN(z2 - z1);
     if (dz != 0) tDeltaZ = fmin(dz / (z2 - z1), 10000000.0); else tDeltaZ = 10000000.0;
     if (dz > 0) tMaxZ = tDeltaZ * FRAC1(z1); else tMaxZ = tDeltaZ * FRAC0(z1);
-    voxel.z = (int)z1;
+    voxel.z = (int)floor(z1);
 
     while (true) {
         if (tMaxX < tMaxY) {
@@ -522,77 +522,6 @@ internal bool voxel_raycast(Chunk_Manager *manager, V3_F64 origin, V3_F32 direct
 
     return false;
 }
-
-/*
-internal bool raycast(Chunk_Manager *manager, World_Position start, V3_F32 direction, Raycast_Result *result) {
-    const int max_t = 128;
-
-    int step_x = (int)sign_f32(direction.x);
-    int step_y = (int)sign_f32(direction.y);
-    int step_z = (int)sign_f32(direction.z);
-
-    f32 next_bound_x = (floor_f32(start.off.x + step_x));
-    f32 next_bound_y = (floor_f32(start.off.y + step_y));
-    f32 next_bound_z = (floor_f32(start.off.z + step_z));
-
-    f32 t_max_x = direction.x != 0.0f ? (next_bound_x - start.off.x) / direction.x : FLT_MAX;
-    f32 t_max_y = direction.y != 0.0f ? (next_bound_y - start.off.y) / direction.y : FLT_MAX;
-    f32 t_max_z = direction.z != 0.0f ? (next_bound_z - start.off.z) / direction.z : FLT_MAX;
-
-    f32 t_delta_x = direction.x != 0.0f ? (step_x / direction.x) : FLT_MAX;
-    f32 t_delta_y = direction.y != 0.0f ? (step_y / direction.y) : FLT_MAX;
-    f32 t_delta_z = direction.z != 0.0f ? (step_z / direction.z) : FLT_MAX;
-
-    int x = 0;
-    int y = 0;
-    int z = 0;
-
-    result->start = start;
-    result->direction = direction;
-    result->face = FACE_NORTH;
-
-    printf("RAYCAST START: (%d,%d,%d) (%.2f,%.2f, %.2f)\n", start.base.x, start.base.y, start.base.z, start.off.x, start.off.y, start.off.z);
-    printf("DIR:(%.2f,%.2f,%.2f)\n", direction.x, direction.y, direction.z);
-    printf("NEXT_BOUND:(%.2f,%.2f,%.2f)\n", next_bound_x, next_bound_y, next_bound_z);
-    printf("T_DELTA: (%.2f,%.2f,%.2f)\n", t_delta_x, t_delta_y, t_delta_z);
-    printf("STEP: (%d,%d,%d)\n", step_x, step_y, step_z);
-
-    for (int t = 0; t < max_t; t++) {
-        printf("T:%d T_MAX:(%.2f,%.2f,%.2f)\n", t, t_max_x, t_max_y, t_max_z);
-        printf("CURR:%d %d %d\n", x, y, z);
-
-        if (t_max_x < t_max_y) {
-            if (t_max_x < t_max_z) {
-                t_max_x += t_delta_x;
-                x += step_x;
-                result->face = (step_x < 0) ? FACE_EAST : FACE_WEST;
-            } else {
-                t_max_z += t_delta_z;
-                z += step_z;
-                result->face = (step_z < 0) ? FACE_SOUTH : FACE_NORTH;
-            }
-        } else if (t_max_y < t_max_z) {
-            t_max_y += t_delta_y;
-            y += step_y;
-            result->face = (step_y < 0) ? FACE_TOP : FACE_BOTTOM;
-        } else {
-            t_max_z += t_delta_z;
-            z += step_z;
-            result->face = (step_z < 0) ? FACE_SOUTH : FACE_NORTH;
-        }
-
-        World_Position world_p = add_world_position(start, make_v3_f32((f32)x, (f32)y, (f32)z));
-        Block_ID *block = get_block_from_position(manager, world_p.base);
-        if (block_is_active(*block)) {
-            printf("RAYCAST END: (%d,%d,%d) (%f,%f,%f)\n", world_p.base.x, world_p.base.y, world_p.base.z, world_p.off.x, world_p.off.y, world_p.off.z);
-            result->end = make_world_position(world_p.base, V3_F32_Zero);
-            return true;
-        }
-    }
-
-    return false;
-}
-*/
 
 internal void update_and_render(OS_Event_List *event_list, OS_Handle window_handle, f32 dt) {
     local_persist bool first_call = true;
@@ -940,23 +869,21 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
 
     {
-        char *str = NULL;
         if (game_state->player->raycast.block != block_id_zero()) {
             Block_ID *block = get_block_from_position(chunk_manager, (s32)game_state->player->raycast.hit.x, (s32)game_state->player->raycast.hit.y, (s32)game_state->player->raycast.hit.z);
-            if (block) str = block_to_string(*block);
+            ui_labelf("raycast: %.2f %.2f %.2f block:%s face: %s", game_state->player->raycast.hit.x, game_state->player->raycast.hit.y, game_state->player->raycast.hit.z, block_to_string(*block), face_to_string(game_state->player->raycast.face));
         }
-        ui_labelf("selected block:%s face: %s", str, face_to_string(game_state->player->raycast.face));
     }
 
     // ui_labelf("vertices %d", mesh_vertices_this_frame);
     // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
     // ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);
 
-    ui_label(str8_lit("Profiler:"));
-    for (int i = 0; i < g_profile_manager.scope_count; i++) {
-        Profile_Scope *scope = &g_profile_manager.scopes[i];
-        ui_labelf("- %s: %.3fms", scope->name, scope->ms_elapsed);
-    }
+    // ui_label(str8_lit("Profiler:"));
+    // for (int i = 0; i < g_profile_manager.scope_count; i++) {
+    //     Profile_Scope *scope = &g_profile_manager.scopes[i];
+    //     ui_labelf("- %s: %.3fms", scope->name, scope->ms_elapsed);
+    // }
 
     ui_layout_apply(ui_root());
 
