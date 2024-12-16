@@ -62,6 +62,7 @@ enum R_Params_Kind {
     R_ParamsKind_Quad,
     R_ParamsKind_Mesh,
     R_ParamsKind_Blocks,
+    R_ParamsKind_Sun,
     R_ParamsKind_COUNT,
 };
 
@@ -94,6 +95,12 @@ struct R_Params_Blocks {
     V3_F64 position;
 };
 
+struct R_Params_Sun {
+    M4_F32 projection;
+    M4_F32 view;
+    R_Handle tex;
+};
+
 struct R_Params {
     R_Params_Kind kind;
     union {
@@ -101,6 +108,7 @@ struct R_Params {
         R_Params_Quad *params_quad;
         R_Params_Mesh *params_mesh;
         R_Params_Blocks *params_blocks;
+        R_Params_Sun *params_sun;
     };
 };
 
