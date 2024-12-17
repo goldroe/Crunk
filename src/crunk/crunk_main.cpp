@@ -4,8 +4,7 @@
 #include <stb_image.h>
 #pragma warning(pop)
 
-#include <noiseutils.h>
-#include <noise/noise.h>
+#include "FastNoiseLite/FastNoiseLite.h"
 
 #include <ft2build.h>
 #include <freetype/freetype.h>
