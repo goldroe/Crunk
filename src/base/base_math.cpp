@@ -20,6 +20,13 @@ inline internal V3_F32 v3_f32_from_v3_s32(V3_S32 v) {V3_F32 result; result.x = (
 inline internal V2_S32 v2_s32_from_v2_f32(V2_F32 v) {V2_S32 result; result.x = (s32)v.x; result.y = (s32)v.y; return result;}
 inline internal V3_S32 v3_s32_from_v3_f32(V3_F32 v) {V3_S32 result; result.x = (s32)v.x; result.y = (s32)v.y; result.z = (s32)v.z; return result;}
 
+inline internal V2_F32 fill_v2_f32(f32 v) {V2_F32 result; result.x = v; result.y = v; return result;}
+inline internal V3_F32 fill_v3_f32(f32 v) {V3_F32 result; result.x = v; result.y = v; result.z = v; return result;}
+inline internal V4_F32 fill_v4_f32(f32 v) {V4_F32 result; result.x = v; result.y = v; result.z = v; result.w = v; return result;}
+inline internal V2_F64 fill_v2_f64(f64 v) {V2_F64 result; result.x = v; result.y = v; return result;}
+inline internal V3_F64 fill_v3_f64(f64 v) {V3_F64 result; result.x = v; result.y = v; result.z = v; return result;}
+inline internal V4_F64 fill_v4_f64(f64 v) {V4_F64 result; result.x = v; result.y = v; result.z = v; result.w = v; return result;}
+
 inline internal M4_F32 m4_f32(f32 d) {
     M4_F32 result = {};
     result._00 = d;
