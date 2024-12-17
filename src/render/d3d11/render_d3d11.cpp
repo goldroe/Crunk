@@ -482,35 +482,6 @@ internal void d3d11_resize_render_target_view(UINT width, UINT height) {
     r_d3d11_state->device_context->OMSetRenderTargets(1, &r_d3d11_state->render_target_view, r_d3d11_state->depth_stencil_view);
 }
 
-
-inline internal u8 get_chunk_face_mask(Chunk *chunk, int x, int y, int z) {
-    u8 face_mask = 0;
-    if (y < CHUNK_SIZE - 1) face_mask |= FACE_MASK_TOP*block_is_opaque(*block_at(chunk, x, y + 1, z));
-    if (y > 0)              face_mask |= FACE_MASK_BOTTOM*block_is_opaque(*block_at(chunk, x, y - 1, z));
-    if (z < CHUNK_SIZE - 1) face_mask |= FACE_MASK_NORTH*block_is_opaque(*block_at(chunk, x, y, z + 1));
-    if (z > 0)              face_mask |= FACE_MASK_SOUTH*block_is_opaque(*block_at(chunk, x, y, z - 1));
-    if (x > 0)              face_mask |= FACE_MASK_WEST*block_is_opaque(*block_at(chunk, x - 1, y, z));
-    if (x < CHUNK_SIZE - 1) face_mask |= FACE_MASK_EAST*block_is_opaque(*block_at(chunk, x + 1, y, z));
-    return face_mask;
-}
-
-// 0-1 face orientation (TOP, BOT, NS, EW)
-// 1-4 xyz (chunk relative)
-// 4-5 tex index
-// 5-6 color index
-inline internal u64 make_block_vertex_data(Face face, u8 x, u8 y, u8 z, u8 tex, u8 col) {
-    u64 result = (u64)face | (x<<8) | (y<<16) | ((u64)z<<24) | ((u64)tex<<32) | ((u64)col<<40);
-    return result;
-}
-
-inline internal V3_F32 v3_f32_from_block_data(u64 data) {
-    V3_F32 result;
-    result.x = (f32)((data >> 8)  & 0xFF);
-    result.y = (f32)((data >> 16) & 0xFF);
-    result.z = (f32)((data >> 24) & 0xFF);
-    return result;
-}
-
 internal void d3d11_upload_block_atlas(Texture_Atlas *atlas) {
     HRESULT hr = S_OK;
     V2_F32 *uv_array = (V2_F32 *)malloc(4 * atlas->texture_region_count * sizeof(V2_F32));
@@ -560,93 +531,6 @@ internal void d3d11_upload_color_table() {
         hr = r_d3d11_state->device->CreateShaderResourceView(color_table_buffer, NULL, &color_table_srv);
     }
     g_block_color_table_res = color_table_srv;
-}
-
-internal void fill_chunk_geometry(Chunk *chunk, Auto_Array<u64> &vertices, bool opaque) {
-#define push_block_vertex(F, P, T, C) (vertices.push(make_block_vertex_data(F, (u8)P.x, (u8)P.y, (u8)P.z, T, C)))
-    for (int z = 0; z < CHUNK_SIZE; z++) {
-        for (int y = 0; y < CHUNK_HEIGHT; y++) {
-            for (int x = 0; x < CHUNK_SIZE; x++) {
-                Block_ID *block = block_at(chunk, x, y, z);
-                Block *basic_block = get_basic_block(*block);
-
-                if (block_is_active(*block) && (opaque == block_is_opaque(basic_block))) {
-                    u8 face_mask = get_chunk_face_mask(chunk, x, y, z);
-
-                    const int S = 1;
-                    V3_S32 p0 = v3_s32(x,     y,     z + S);
-                    V3_S32 p1 = v3_s32(x + S, y,     z + S);
-                    V3_S32 p2 = v3_s32(x + S, y + S, z + S);
-                    V3_S32 p3 = v3_s32(x,     y + S, z + S);
-                    V3_S32 p4 = v3_s32(x,     y,     z);
-                    V3_S32 p5 = v3_s32(x + S, y,     z);
-                    V3_S32 p6 = v3_s32(x + S, y + S, z);
-                    V3_S32 p7 = v3_s32(x,     y + S, z);
-
-                    if (!(face_mask & FACE_MASK_TOP)) {
-                        Block_Face *face = &basic_block->faces[FACE_TOP];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_TOP, p3, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_TOP, p2, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_TOP, p6, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_TOP, p6, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_TOP, p7, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_TOP, p3, atlas_index + 0, face->color_id);
-                    }
-                    if (!(face_mask & FACE_MASK_BOTTOM)) {
-                        Block_Face *face = &basic_block->faces[FACE_BOTTOM];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_BOTTOM, p1, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_BOTTOM, p0, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_BOTTOM, p4, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_BOTTOM, p4, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_BOTTOM, p5, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_BOTTOM, p1, atlas_index + 0, face->color_id);
-                    }
-                    if (!(face_mask & FACE_MASK_NORTH)) {
-                        Block_Face *face = &basic_block->faces[FACE_NORTH];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_NORTH, p0, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_NORTH, p1, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_NORTH, p2, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_NORTH, p2, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_NORTH, p3, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_NORTH, p0, atlas_index + 0, face->color_id);
-                    }
-                    if (!(face_mask & FACE_MASK_SOUTH)) {
-                        Block_Face *face = &basic_block->faces[FACE_SOUTH];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_SOUTH, p5, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_SOUTH, p4, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_SOUTH, p7, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_SOUTH, p7, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_SOUTH, p6, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_SOUTH, p5, atlas_index + 0, face->color_id);
-                    }
-                    if (!(face_mask & FACE_MASK_EAST)) {
-                        Block_Face *face = &basic_block->faces[FACE_EAST];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_EAST, p1, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_EAST, p5, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_EAST, p6, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_EAST, p6, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_EAST, p2, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_EAST, p1, atlas_index + 0, face->color_id);
-                    }
-                    if (!(face_mask & FACE_MASK_WEST)) {
-                        Block_Face *face = &basic_block->faces[FACE_WEST];
-                        u8 atlas_index = (u8)face->texture_region->atlas_index * 4;
-                        push_block_vertex(FACE_WEST, p4, atlas_index + 0, face->color_id);
-                        push_block_vertex(FACE_WEST, p0, atlas_index + 1, face->color_id);
-                        push_block_vertex(FACE_WEST, p3, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_WEST, p3, atlas_index + 2, face->color_id);
-                        push_block_vertex(FACE_WEST, p7, atlas_index + 3, face->color_id);
-                        push_block_vertex(FACE_WEST, p4, atlas_index + 0, face->color_id);
-                    }
-                }
-            }
-        }
-    }
 }
 
 internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
@@ -822,9 +706,6 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
                 sorted_chunks[j + 1] = chunk;
             }
 
-            Auto_Array<u64> vertices;
-            vertices.reserve(6 * FACE_COUNT * CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
-
             r_d3d11_state->device_context->OMSetBlendState(NULL, NULL, 0xffffffff);
 
             //@Note Render Opaque Blocks
@@ -837,25 +718,19 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
                 chunk_uniform.world_position = chunk_world_position;
 
-                fill_chunk_geometry(chunk, vertices, true);
-
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
-                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
+                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->opaque_geo.data, chunk->opaque_geo.count * sizeof(u64));
                 UINT stride = sizeof(u64), offset = 0;
                 r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
-
-                vertices.reset_count();
+                r_d3d11_state->device_context->Draw((UINT)chunk->opaque_geo.count, 0);
                 if (vertex_buffer) vertex_buffer->Release();
             }
             r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
 
             //@Note Render Transparent Blocks
-            // Auto_Array<V3_F32> blocK_positions;
-            // blocK_position.reserve(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
-            for (int chunk_idx = 0; chunk_idx < sorted_chunks.count; chunk_idx++) {
-                Chunk *chunk = sorted_chunks[chunk_idx];
+            for (int i = 0; i < sorted_chunks.count; i++) {
+                Chunk *chunk = sorted_chunks[i];
                 V4_S32 chunk_world_position = V4_Zero;
                 chunk_world_position.x = chunk->position.x * CHUNK_SIZE;
                 chunk_world_position.y = chunk->position.y * CHUNK_HEIGHT;
@@ -863,40 +738,16 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
                 chunk_uniform.world_position = chunk_world_position;
 
-                fill_chunk_geometry(chunk, vertices, false);
-
-                //@Note Sort transparent blocks
-                //@Error Sorts each vertex of the block, need to sort by cube center
-                // for (s64 i = 0; i < (s64)vertices.count; i++) {
-                //     u64 val = vertices[i];
-                //     V3_F32 v = V3_F32_from_block_data(val);
-                //     f32 len = length2(v - origin);
-                //     s64 j = i - 1;
-                //     while (j >= 0) {
-                //         V3_F32 v_1 = V3_F32_from_block_data(vertices[j]);
-                //         if (len < length2(v_1 - origin)) {
-                //             vertices[j+1] = vertices[j];
-                //             j--;
-                //         } else {
-                //             break;
-                //         }
-                //     }
-                //     vertices[j + 1] = val;
-                // }
-                
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
-                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(vertices.data, vertices.count * sizeof(u64));
+                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->transparent_geo.data, chunk->transparent_geo.count * sizeof(u64));
                 UINT stride = sizeof(u64), offset = 0;
                 r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                r_d3d11_state->device_context->Draw((UINT)vertices.count, 0);
-
-                vertices.reset_count();
+                r_d3d11_state->device_context->Draw((UINT)chunk->transparent_geo.count, 0);
                 if (vertex_buffer) vertex_buffer->Release();
             }
 
             sorted_chunks.clear();
-            vertices.clear();
             // r_d3d11_state->device_context->End(end_query);
             break;
         }

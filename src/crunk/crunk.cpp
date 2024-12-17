@@ -14,10 +14,6 @@ internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     return result;
 }
 
-inline internal f32 sign_f32(f32 x) {
-    return x > EPSILON ? 1.0f : x < -EPSILON ? -1.0f : 0.0f;
-}
-
 inline internal V3_F32 v3_f32_from_face(Face face) {
     switch (face) {
     default:
@@ -59,30 +55,6 @@ inline internal char *face_to_string(Face face) {
         result = "BOTTOM";
         break;
     }
-    return result;
-}
-
-inline internal V3_S32 get_chunk_position(s32 x, s32 y, s32 z) {
-    V3_S32 result;
-    result.x = (int)floor_f32((f32)x / CHUNK_SIZE);
-    result.y = (int)floor_f32((f32)y / CHUNK_HEIGHT);
-    result.z = (int)floor_f32((f32)z / CHUNK_SIZE);
-    return result;
-}
-
-inline internal V3_S32 get_chunk_position(V3_F64 position) {
-    V3_S32 result;
-    result.x = (int)floor_f64(position.x / CHUNK_SIZE);
-    result.y = (int)floor_f64(position.y / CHUNK_HEIGHT);
-    result.z = (int)floor_f64(position.z / CHUNK_SIZE);
-    return result;
-}
-
-inline internal V3_S32 get_chunk_relative_position(Chunk *chunk, s32 x, s32 y, s32 z) {
-    V3_S32 result;
-    result.x = x - CHUNK_SIZE * chunk->position.x;
-    result.y = y - CHUNK_HEIGHT * chunk->position.y;
-    result.z = z - CHUNK_SIZE * chunk->position.z;
     return result;
 }
 
@@ -196,6 +168,7 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
         Chunk *chunk = chunk_new(manager);
         chunk->position = position;
         generate_chunk(manager, world_generator, chunk);
+        chunk->dirty = true;
     }
 }
 
@@ -635,6 +608,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     if (key_pressed(OS_KEY_LEFTMOUSE)) {
         block_place(game_state->player->raycast.block, BLOCK_AIR);
+
+        Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(game_state->player->position));
+        chunk->dirty = true;
     }
 
     if (key_pressed(OS_KEY_RIGHTMOUSE)) {
@@ -646,6 +622,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         new_block_position.z += face_normal.z;
         Block_ID *block = get_block_from_position(chunk_manager, (s32)new_block_position.x, (s32)new_block_position.y, (s32)new_block_position.z);
         block_place(block, BLOCK_WOOD);
+
+        Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(game_state->player->position));
+        chunk->dirty = true;
     }
 
     //@Note Player camera
@@ -801,6 +780,13 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@Note Update Frustum
     game_state->frustum = make_frustum(game_state->camera, 0.01f, 1200.0f);
+
+    for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
+        if (chunk->dirty) {
+            chunk->dirty = false;
+            load_chunk_mesh(chunk);
+        }
+    }
 
     M4_F32 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
     M4_F32 projection  = perspective_rh_zo(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.01f, 1200.0f);

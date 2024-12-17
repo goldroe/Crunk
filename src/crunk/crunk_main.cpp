@@ -24,6 +24,7 @@
 #include "camera.h"
 #include "frustum.h"
 #include "block.h"
+#include "chunk.h"
 #include "crunk.h"
 
 #include "render/render_core.h"
@@ -57,6 +58,7 @@
 #include "atlas.cpp"
 #include "frustum.cpp"
 #include "block.cpp"
+#include "chunk.cpp"
 #include "crunk.cpp"
 
 bool window_should_close;
