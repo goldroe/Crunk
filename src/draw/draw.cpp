@@ -430,28 +430,15 @@ inline internal void draw_3d_vertex(V3_F32 pos, V4_F32 color, V2_F32 tex) {
     draw_batch_push_3d_vertex(&node->batch, vertex);
 }
 
-internal void draw_cube(V3_F32 position, Rect src, V4_F32 color, u8 face_mask) {
-#if 0
-    f32 S = 0.5f;
-    V3_F32 p0 = v3_f32(position.x - S, position.y - S, position.z + S);
-    V3_F32 p1 = v3_f32(position.x + S, position.y - S, position.z + S);
-    V3_F32 p2 = v3_f32(position.x + S, position.y + S, position.z + S);
-    V3_F32 p3 = v3_f32(position.x - S, position.y + S, position.z + S);
-    V3_F32 p4 = v3_f32(position.x - S, position.y - S, position.z - S);
-    V3_F32 p5 = v3_f32(position.x + S, position.y - S, position.z - S);
-    V3_F32 p6 = v3_f32(position.x + S, position.y + S, position.z - S);
-    V3_F32 p7 = v3_f32(position.x - S, position.y + S, position.z - S);
-#else
-    f32 S = 1.0f;
-    V3_F32 p0 = v3_f32(position.x,     position.y, position.z + S);
-    V3_F32 p1 = v3_f32(position.x + S, position.y, position.z + S);
-    V3_F32 p2 = v3_f32(position.x + S, position.y + S, position.z + S);
-    V3_F32 p3 = v3_f32(position.x, position.y + S, position.z + S);
+internal void draw_cube(V3_F32 position, f32 size, Rect src, V4_F32 color, u8 face_mask) {
+    V3_F32 p0 = v3_f32(position.x,     position.y, position.z + size);
+    V3_F32 p1 = v3_f32(position.x + size, position.y, position.z + size);
+    V3_F32 p2 = v3_f32(position.x + size, position.y + size, position.z + size);
+    V3_F32 p3 = v3_f32(position.x, position.y + size, position.z + size);
     V3_F32 p4 = v3_f32(position.x, position.y, position.z);
-    V3_F32 p5 = v3_f32(position.x + S, position.y, position.z);
-    V3_F32 p6 = v3_f32(position.x + S, position.y + S, position.z);
-    V3_F32 p7 = v3_f32(position.x, position.y + S, position.z);
-#endif
+    V3_F32 p5 = v3_f32(position.x + size, position.y, position.z);
+    V3_F32 p6 = v3_f32(position.x + size, position.y + size, position.z);
+    V3_F32 p7 = v3_f32(position.x, position.y + size, position.z);
 
     V2_F32 tl = v2_f32(src.x0, src.y0);
     V2_F32 br = v2_f32(src.x1, src.y1);
