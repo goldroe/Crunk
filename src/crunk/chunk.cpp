@@ -135,6 +135,8 @@ internal void push_mesh_geometry(Chunk *chunk, bool do_opaque, Auto_Array<u64> &
 internal void load_chunk_mesh(Chunk *chunk) {
     chunk->opaque_geo.reset_count();
     chunk->transparent_geo.reset_count();
+
+    //@Todo sort geometry?
     push_mesh_geometry(chunk, true, chunk->opaque_geo);
-    push_mesh_geometry(chunk, true, chunk->transparent_geo);
+    push_mesh_geometry(chunk, false, chunk->transparent_geo);
 }
