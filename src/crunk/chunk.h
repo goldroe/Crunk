@@ -13,7 +13,8 @@ struct Chunk_Node;
 struct Chunk;
 
 #define CHUNK_SIZE 64
-#define CHUNK_HEIGHT 64
+#define CHUNK_HEIGHT 256
+#define CHUNK_BLOCKS (CHUNK_HEIGHT*CHUNK_SIZE*CHUNK_SIZE)
 
 struct Chunk_Node_List {
     Chunk_Node *first;

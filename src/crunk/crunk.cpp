@@ -60,10 +60,10 @@ inline internal char *face_to_string(Face face) {
     return result;
 }
 
-internal Chunk *get_chunk_from_position(Chunk_Manager *manager, V3_S32 chunk_position) {
+internal Chunk *get_chunk_from_position(Chunk_Manager *manager, V3_S32 position) {
     Chunk *result = NULL;
     for (Chunk *chunk = manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-        if (chunk->position == chunk_position) {
+        if (chunk->position.x == position.x && chunk->position.z == position.z) {
             result = chunk;
             break;
         }
@@ -91,7 +91,7 @@ inline internal bool is_block_active_at(Chunk_Manager *manager, s32 x, s32 y, s3
 
 internal s32 get_height_from_chunk_xz(Chunk *chunk, s32 x, s32 z) {
     s32 result = 0;
-    for (int y = CHUNK_SIZE - 1; y >= 0; y--) {
+    for (int y = CHUNK_HEIGHT - 1; y >= 0; y--) {
         Block_ID *block = block_at(chunk, x, y, z);
         if (block_is_active(*block)) {
             result = y;
@@ -132,12 +132,13 @@ internal Chunk *chunk_new(Chunk_Manager *manager) {
     Chunk *result = manager->free_chunks.first;
     if (result) {
         DLLRemove(manager->free_chunks.first, manager->free_chunks.last, result, next, prev);
+        manager->free_chunks.count--;
     } else {
         result = push_array(manager->arena, Chunk, 1);
-        result->blocks = (Block_ID *)arena_push(manager->arena, sizeof(Block_ID) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+        result->blocks = (Block_ID *)arena_push(manager->arena, sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
     }
     DLLPushBack(manager->loaded_chunks.first, manager->loaded_chunks.last, result, next, prev);
-    manager->loaded_chunks.count += 1;
+    manager->loaded_chunks.count++;
     return result;
 }
 
@@ -145,11 +146,12 @@ internal Chunk *load_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
     V3_S32 position = {x, y, z};
     Chunk *result = NULL;
     for (Chunk *chunk = manager->free_chunks.first; chunk; chunk = chunk->next) {
-        if (chunk->position == position) {
+        if (chunk->position.x == x && chunk->position.z == z) {
             result = chunk;
             DLLRemove(manager->free_chunks.first, manager->free_chunks.last, chunk, next, prev);
             DLLPushBack(manager->loaded_chunks.first, manager->loaded_chunks.last, chunk, next, prev);
             manager->free_chunks.count--;
+            manager->loaded_chunks.count++;
             break;
         }
     }
@@ -157,10 +159,9 @@ internal Chunk *load_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
 }
 
 internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
-    V3_S32 position = {x, y, z};
     bool found = false;
     for (Chunk *chunk = manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-        if (chunk->position == position) {
+        if (chunk->position.x == x && chunk->position.z == z) {
             found = true;
             break;
         }
@@ -168,7 +169,8 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
 
     if (!found) {
         Chunk *chunk = chunk_new(manager);
-        chunk->position = position;
+        MemoryZero(chunk->blocks, CHUNK_BLOCKS * sizeof(Block_ID));
+        chunk->position = v3_s32(x, 0, z);
         generate_chunk(manager, world_generator, chunk);
         chunk->dirty = true;
     }
@@ -180,19 +182,21 @@ internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_positi
         next = chunk->next;
         DLLRemove(manager->loaded_chunks.first, manager->loaded_chunks.last, chunk, next, prev);
         DLLPushBack(manager->free_chunks.first, manager->free_chunks.last, chunk, next, prev);
+        manager->loaded_chunks.count--;
+        manager->free_chunks.count++;
     }
 
-    load_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x, chunk_position.y, chunk_position.z);
-    V3_S32 dim = v3_s32(5, 0, 5);
+    load_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
+    load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
+    V3_S32 dim = v3_s32(4, 0, 4);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
     s32 max_z = chunk_position.z + (s32)(0.5f * dim.z);
     for (s32 x = min_x; x < max_x; x++) {
         for (s32 z = min_z; z < max_z; z++) {
-            load_chunk_at(manager, x, chunk_position.y, z);
-            load_new_chunk_at(manager, x, chunk_position.y, z);
+            load_chunk_at(manager, x, 0, z);
+            load_new_chunk_at(manager, x, 0, z);
         }
     }
 }
@@ -207,7 +211,7 @@ internal void deserialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
     Assert(data_size > 0);
 
     MemoryCopy((void *)&chunk->position, chunk_data, sizeof(chunk->position)); 
-    MemoryCopy((void *)chunk->blocks, chunk_data + sizeof(chunk->position), sizeof(Block_ID) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    MemoryCopy((void *)chunk->blocks, chunk_data + sizeof(chunk->position), sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
 
     arena_release(scratch);
 }
@@ -228,8 +232,8 @@ internal void serialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
         dst += sizeof(chunk->position.e[i]);
     }
 
-    MemoryCopy(dst, chunk->blocks, sizeof(Block_ID) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
-    dst += sizeof(Block_ID) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    MemoryCopy(dst, chunk->blocks, sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
+    dst += sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE;
 
     u64 size = dst - buffer;
 
@@ -388,6 +392,12 @@ internal void load_blocks() {
     }
 
     {
+        Block *block = &blocks[BLOCK_SAND];
+        set_block_face_all(block, str8_lit("sand.png"), 0);
+        block->step_type = STEP_SAND;
+    }
+
+    {
         Block *block = &blocks[BLOCK_LOG];
         set_block_face(block->faces + FACE_TOP, str8_lit("oak_log_top.png"), 0);
         set_block_face(block->faces + FACE_NORTH, str8_lit("oak_log.png"), 0);
@@ -410,6 +420,11 @@ internal void load_blocks() {
         Block *block = &blocks[BLOCK_WATER];
         set_block_face_all(block, str8_lit("underwater.png"), 6);
         block->flags |= BLOCK_FLAG_TRANSPARENT;
+    }
+
+    {
+        Block *block = &blocks[BLOCK_BEDROCK];
+        set_block_face_all(block, str8_lit("bedrock.png"), 0);
     }
 
     d3d11_upload_block_atlas(atlas);
@@ -532,8 +547,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             world_generator = push_array(arena, World_Generator, 1);
             world_generator->arena = arena;
         }
+
         init_world_generator(world_generator, 1337);
-        update_world_generator(world_generator, 0, 0);
+        // update_world_generator(world_generator, 0, 0);
 
         //@Note Game State
         {
@@ -547,7 +563,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
         //@Note Initialize Chunk Manager
         {
-            Arena *arena = arena_alloc(get_virtual_allocator(), MB(8));
+            Arena *arena = arena_alloc(get_virtual_allocator(), MB(64));
             chunk_manager = push_array(arena, Chunk_Manager, 1);
             chunk_manager->arena = arena;
         }
@@ -748,7 +764,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         chunk_manager->chunk_position = chunk_position;
     }
 
-    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &player->raycast);
+    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 256.0f, &player->raycast);
 
     if (key_pressed(OS_KEY_F1)) {
         game_state->mesh_debug = !game_state->mesh_debug;
@@ -764,6 +780,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     if (key_down(OS_KEY_LEFTMOUSE)) {
         if (player->raycast.block != block_id_zero()) {
+            Assert(block_is_active(*player->raycast.block));
             if (player->mining != player->raycast.block) {
                 player->mining = player->raycast.block;
                 player->mining_t = 0;

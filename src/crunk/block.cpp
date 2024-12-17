@@ -47,12 +47,9 @@ inline internal char *block_to_string(Block_ID block) {
 }
 
 inline internal Block_ID *block_at(Chunk *chunk, int x, int y, int z) {
-    Assert(x < CHUNK_SIZE);
-    Assert(y < CHUNK_HEIGHT);
-    Assert(z < CHUNK_SIZE);
     Block_ID *result = block_id_zero();
     if (chunk) {
-        result = &chunk->blocks[x + y*CHUNK_HEIGHT + z*CHUNK_SIZE*CHUNK_HEIGHT];
+        result = &chunk->blocks[x + y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE];
     }
     return result;
 }
