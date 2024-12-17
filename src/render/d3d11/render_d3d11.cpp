@@ -720,11 +720,13 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
-                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->opaque_geo.data, chunk->opaque_geo.count * sizeof(u64));
-                UINT stride = sizeof(u64), offset = 0;
-                r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                r_d3d11_state->device_context->Draw((UINT)chunk->opaque_geo.count, 0);
-                if (vertex_buffer) vertex_buffer->Release();
+                if (chunk->opaque_geo.count > 0) {
+                    ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->opaque_geo.data, chunk->opaque_geo.count * sizeof(u64));
+                    UINT stride = sizeof(u64), offset = 0;
+                    r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+                    r_d3d11_state->device_context->Draw((UINT)chunk->opaque_geo.count, 0);
+                    vertex_buffer->Release();
+                }
             }
             r_d3d11_state->device_context->OMSetBlendState(r_d3d11_state->blend_states[R_BlendState_Mesh], NULL, 0xffffffff);
 
@@ -740,11 +742,13 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
-                ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->transparent_geo.data, chunk->transparent_geo.count * sizeof(u64));
-                UINT stride = sizeof(u64), offset = 0;
-                r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                r_d3d11_state->device_context->Draw((UINT)chunk->transparent_geo.count, 0);
-                if (vertex_buffer) vertex_buffer->Release();
+                if (chunk->transparent_geo.count > 0) {
+                    ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->transparent_geo.data, chunk->transparent_geo.count * sizeof(u64));
+                    UINT stride = sizeof(u64), offset = 0;
+                    r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+                    r_d3d11_state->device_context->Draw((UINT)chunk->transparent_geo.count, 0);
+                    vertex_buffer->Release();
+                }
             }
 
             sorted_chunks.clear();
