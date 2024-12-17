@@ -59,6 +59,11 @@ struct Player {
     V3_F32 velocity;
 
     Voxel_Raycast raycast;
+    Chunk *chunk;
+
+    Block_ID *mining;
+    f32 mining_t;
+    f32 mining_target_t;
 
     Inventory *inventory;
 

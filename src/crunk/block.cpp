@@ -2,6 +2,14 @@ global Block g_basic_blocks[BLOCK_COUNT];
 
 global Block_ID g_block_id_nil;
 
+inline internal Block *get_basic_block(Block_ID block) {
+    return &g_basic_blocks[block];
+}
+
+inline internal f32 block_mining_time(Block_ID *block) {
+    return 0.7f;
+}
+
 inline internal Block_ID *block_id_zero() {
     Block_ID *result = &g_block_id_nil;
     return result;
@@ -47,10 +55,6 @@ inline internal Block_ID *block_at(Chunk *chunk, int x, int y, int z) {
         result = &chunk->blocks[x + y*CHUNK_HEIGHT + z*CHUNK_SIZE*CHUNK_HEIGHT];
     }
     return result;
-}
-
-inline internal Block *get_basic_block(Block_ID block) {
-    return &g_basic_blocks[block];
 }
 
 inline internal bool block_is_active(Block_ID block) {

@@ -7,6 +7,8 @@ global Texture_Atlas *g_block_atlas;
 global R_Handle icon_tex;
 global R_Handle sun_tex;
 
+global R_Handle mining_textures[10];
+
 internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     Ray result;
     result.origin = origin;
@@ -513,6 +515,17 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         icon_tex = load_texture(str8_lit("data/assets/icons.png"));
         sun_tex = load_texture(str8_lit("data/assets/environment/sun.png"));
 
+        mining_textures[0] = load_texture(str8_lit("data/assets/misc/destroy_stage_0.png"));
+        mining_textures[1] = load_texture(str8_lit("data/assets/misc/destroy_stage_1.png"));
+        mining_textures[2] = load_texture(str8_lit("data/assets/misc/destroy_stage_2.png"));
+        mining_textures[3] = load_texture(str8_lit("data/assets/misc/destroy_stage_3.png"));
+        mining_textures[4] = load_texture(str8_lit("data/assets/misc/destroy_stage_4.png"));
+        mining_textures[5] = load_texture(str8_lit("data/assets/misc/destroy_stage_5.png"));
+        mining_textures[6] = load_texture(str8_lit("data/assets/misc/destroy_stage_6.png"));
+        mining_textures[7] = load_texture(str8_lit("data/assets/misc/destroy_stage_7.png"));
+        mining_textures[8] = load_texture(str8_lit("data/assets/misc/destroy_stage_8.png"));
+        mining_textures[9] = load_texture(str8_lit("data/assets/misc/destroy_stage_9.png"));
+
         //@Note World Generator
         {
             Arena *arena = arena_alloc(get_virtual_allocator(), MB(1));
@@ -542,6 +555,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         update_chunk_load_list(chunk_manager, V3_Zero);
 
         game_state->player->position = V3_Zero;
+        game_state->player->mining = block_id_zero();
 
         //@Note Camera
         game_state->camera.up = V3_Up;
@@ -553,7 +567,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         game_state->camera.fov = 70.f;
         game_state->camera.aspect = 1024.0f/ 768.0f;
 
-        game_state->frustum = make_frustum(game_state->camera, 0.001f, 1200.0f);
+        game_state->frustum = make_frustum(game_state->camera, 0.1f, 1200.0f);
 
         int seconds_per_day = 600;
         game_state->ticks_per_second = 10;
@@ -567,13 +581,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     ui_begin_build(dt, window_handle, event_list);
 
-    //@Note Chunk update
-    V3_S32 chunk_position = get_chunk_position(game_state->player->position);
-    chunk_position.y = 0;
-    if (chunk_position.x != chunk_manager->chunk_position.x || chunk_position.z != chunk_manager->chunk_position.z) {
-        update_chunk_load_list(chunk_manager, chunk_position);
-        chunk_manager->chunk_position = chunk_position;
-    }
+    Player *player = game_state->player;
 
     f32 forward_dt = 0.0f;
     f32 right_dt = 0.0f;
@@ -595,36 +603,6 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
     if (key_down(OS_KEY_E)) {
         up_dt -= 1.0f;
-    }
-
-    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &game_state->player->raycast);
-
-    if (key_pressed(OS_KEY_F1)) {
-        game_state->mesh_debug = !game_state->mesh_debug;
-    }
-    if (key_pressed(OS_KEY_F4)) {
-        game_state->creative_mode = !game_state->creative_mode;
-    }
-
-    if (key_pressed(OS_KEY_LEFTMOUSE)) {
-        block_place(game_state->player->raycast.block, BLOCK_AIR);
-
-        Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(game_state->player->position));
-        chunk->dirty = true;
-    }
-
-    if (key_pressed(OS_KEY_RIGHTMOUSE)) {
-        //@Note Interact
-        V3_F32 face_normal = v3_f32_from_face(game_state->player->raycast.face);
-        V3_F64 new_block_position = game_state->player->raycast.hit;
-        new_block_position.x += face_normal.x;
-        new_block_position.y += face_normal.y;
-        new_block_position.z += face_normal.z;
-        Block_ID *block = get_block_from_position(chunk_manager, (s32)new_block_position.x, (s32)new_block_position.y, (s32)new_block_position.z);
-        block_place(block, BLOCK_WOOD);
-
-        Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(game_state->player->position));
-        chunk->dirty = true;
     }
 
     //@Note Player camera
@@ -649,7 +627,6 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@Note Player physics
     if (true) {
-        Player *player = game_state->player;
         player->velocity = V3_Zero;
         f32 speed = 10.0f;
 
@@ -661,10 +638,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         V3_F32 distance = speed * direction * dt;
         player->position += v3_f64(distance.x, distance.y, distance.z);
     }
-
 #if 0
     else {
-        Player *player = game_state->player;
+        Player *player = player;
         f32 G = 9.8f;
         f32 J = 25.f;
         f32 jump_time = 0.3f;
@@ -764,6 +740,61 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 #endif
 
+    //@Note Chunk update
+    V3_S32 chunk_position = get_chunk_position(player->position);
+    chunk_position.y = 0;
+    if (chunk_position.x != chunk_manager->chunk_position.x || chunk_position.z != chunk_manager->chunk_position.z) {
+        update_chunk_load_list(chunk_manager, chunk_position);
+        chunk_manager->chunk_position = chunk_position;
+    }
+
+    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &player->raycast);
+
+    if (key_pressed(OS_KEY_F1)) {
+        game_state->mesh_debug = !game_state->mesh_debug;
+    }
+    if (key_pressed(OS_KEY_F4)) {
+        game_state->creative_mode = !game_state->creative_mode;
+    }
+
+    if (key_up(OS_KEY_LEFTMOUSE)) {
+        player->mining_t = 0;
+        player->mining = block_id_zero();
+    }
+
+    if (key_down(OS_KEY_LEFTMOUSE)) {
+        if (player->raycast.block != block_id_zero()) {
+            if (player->mining != player->raycast.block) {
+                player->mining = player->raycast.block;
+                player->mining_t = 0;
+                player->mining_target_t = block_mining_time(player->raycast.block);
+            }
+
+            player->mining_t += dt;
+            if (player->mining_t >= player->mining_target_t) {
+                player->mining_t = 0;
+                block_place(player->mining, BLOCK_AIR);
+
+                Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(player->position));
+                chunk->dirty = true;
+            }
+        }
+    }
+
+    if (key_pressed(OS_KEY_RIGHTMOUSE)) {
+        //@Note Interact
+        V3_F32 face_normal = v3_f32_from_face(player->raycast.face);
+        V3_F64 new_block_position = player->raycast.hit;
+        new_block_position.x += face_normal.x;
+        new_block_position.y += face_normal.y;
+        new_block_position.z += face_normal.z;
+        Block_ID *block = get_block_from_position(chunk_manager, (s32)new_block_position.x, (s32)new_block_position.y, (s32)new_block_position.z);
+        block_place(block, BLOCK_WOOD);
+
+        Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(player->position));
+        chunk->dirty = true;
+    }
+
     int ticks_elapsed = 10;
 
     int seconds_per_day = 600;
@@ -774,12 +805,16 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         game_state->day_t = 0;
     }
 
+    if (player->raycast.block != player->mining) {
+        player->mining_t = 0;
+    }
+
     //@Todo Make camera position player position offset?
     // So that basically we pass player position relative to the chunk so everything is in world space
-    game_state->camera.position = game_state->player->position + 1.5f * v3_f64(0, 1, 0);
+    game_state->camera.position = player->position + 1.5f * v3_f64(0, 1, 0);
 
     //@Note Update Frustum
-    game_state->frustum = make_frustum(game_state->camera, 0.01f, 1200.0f);
+    game_state->frustum = make_frustum(game_state->camera, 0.1f, 1000.0f);
 
     for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
         if (chunk->dirty) {
@@ -789,7 +824,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 
     M4_F32 ortho_projection = ortho_rh_zo(0.f, dim.x, 0.f, dim.y, -1.f, 1.f);
-    M4_F32 projection  = perspective_rh_zo(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.01f, 1200.0f);
+    M4_F32 projection  = perspective_rh_zo(DegToRad(game_state->camera.fov), dim.x/dim.y, 0.1f, 1000.0f);
     M4_F32 view = look_at_rh_zo(v3_f32(game_state->camera.position), v3_f32(game_state->camera.position) + game_state->camera.forward, game_state->camera.up);
 
     draw_begin(window_handle);
@@ -802,7 +837,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         position.y = sinf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
         position.z = cosf(PI * game_state->day_t / (f32)game_state->ticks_per_day);
         position *= 1000.0f;
-        position += v3_f32(game_state->player->position);
+        position += v3_f32(player->position);
 
         V3_F32 right = v3_f32(view._00, view._10, view._20);
         V3_F32 up = v3_f32(view._01, view._11, view._21);
@@ -821,12 +856,15 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
     }
 
-    draw_chunks(chunk_manager->loaded_chunks, game_state->player->position, game_state->frustum, projection, view, g_block_atlas, game_state->mesh_debug ? R_RasterizerState_Wireframe : R_RasterizerState_Default);
+    draw_chunks(chunk_manager->loaded_chunks, player->position, game_state->frustum, projection, view, g_block_atlas, game_state->mesh_debug ? R_RasterizerState_Wireframe : R_RasterizerState_Default);
 
-    //@Note draw raycast block
-    draw_3d_mesh_begin(projection, view, r_handle_zero(), R_RasterizerState_Wireframe);
-    if (game_state->player->raycast.block != block_id_zero()) {
-        draw_cube(v3_f32(game_state->player->raycast.hit), Rect_Zero, V4_One, FACE_MASK_NIL);
+    //@Note Draw block destroy decal
+    if (player->mining != block_id_zero() && player->mining_t > 0.0f) {
+        int index = (int)((player->mining_t / player->mining_target_t) * (ArrayCount(mining_textures) - 1));
+        R_Handle tex = mining_textures[index];
+        draw_3d_mesh_begin(projection, view, tex, R_RasterizerState_Default);
+        V4_F32 color = v4_f32(0.34f, 0.29f, 0.19f, 1.0f);
+        draw_cube(v3_f32(player->raycast.hit) - fill_v3_f32(0.01f), 1.02f, make_rect(0.0f, 0.0f, 1.0f, 1.0f), color, FACE_MASK_NIL);
     }
 
     draw_set_xform(ortho_projection);
@@ -851,19 +889,19 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@DEBUG
     ui_labelf("delta: %.4fms", 1000.0 * dt);
-    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", game_state->player->position.x, game_state->player->position.y, game_state->player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", player->position.x, player->position.y, player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
     ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
 
     {
-        if (game_state->player->raycast.block != block_id_zero()) {
-            Block_ID *block = get_block_from_position(chunk_manager, (s32)game_state->player->raycast.hit.x, (s32)game_state->player->raycast.hit.y, (s32)game_state->player->raycast.hit.z);
-            ui_labelf("raycast: %.2f %.2f %.2f block:%s face: %s", game_state->player->raycast.hit.x, game_state->player->raycast.hit.y, game_state->player->raycast.hit.z, block_to_string(*block), face_to_string(game_state->player->raycast.face));
+        if (player->raycast.block != block_id_zero()) {
+            Block_ID *block = get_block_from_position(chunk_manager, (s32)player->raycast.hit.x, (s32)player->raycast.hit.y, (s32)player->raycast.hit.z);
+            ui_labelf("raycast: %.2f %.2f %.2f block:%s face: %s", player->raycast.hit.x, player->raycast.hit.y, player->raycast.hit.z, block_to_string(*block), face_to_string(player->raycast.face));
         }
     }
 
     // ui_labelf("vertices %d", mesh_vertices_this_frame);
-    // ui_labelf("%s", game_state->player->grounded ? "GROUNDED" : "NOT GROUNDED");
-    // ui_labelf("velocity: %.3f %.3f %.3f", game_state->player->velocity.x, game_state->player->velocity.y, game_state->player->velocity.z);
+    // ui_labelf("%s", player->grounded ? "GROUNDED" : "NOT GROUNDED");
+    // ui_labelf("velocity: %.3f %.3f %.3f", player->velocity.x, player->velocity.y, player->velocity.z);
 
     // ui_label(str8_lit("Profiler:"));
     // for (int i = 0; i < g_profile_manager.scope_count; i++) {
