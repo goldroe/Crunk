@@ -7,6 +7,7 @@ enum Block_Flags {
     BLOCK_FLAG_NIL          = 0,
     BLOCK_FLAG_GRAVITY      = (1<<0),
     BLOCK_FLAG_TRANSPARENT  = (1<<1),
+    BLOCK_FLAG_EMITS_LIGHT  = (1<<2),
 };
 EnumDefineFlagOperators(Block_Flags);
 
@@ -24,6 +25,8 @@ enum Block_ID : u16 {
     BLOCK_LEAVES,
     BLOCK_WOOD,
     BLOCK_BRICK,
+    BLOCK_TORCH,
+    BLOCK_GLOWSTONE,
     BLOCK_COUNT
 };
 
@@ -54,7 +57,6 @@ struct Block {
     Block_Flags flags;
     Block_Face faces[FACE_COUNT];
     Step_Type step_type;
-
     // f32 gravity_coefficient;
     // f32 friction_coefficient;
 };
@@ -67,4 +69,5 @@ inline internal Block *get_basic_block(Block_ID block);
 inline internal bool block_is_opaque(Block *block);
 inline internal bool block_is_opaque(Block_ID block);
 inline internal void block_place(Block_ID *block, Block_ID value);
+
 #endif // BLOCK_H

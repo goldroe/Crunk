@@ -34,6 +34,21 @@ struct Chunk_List {
     int count;
 };
 
+
+#define MAX_LIGHT_LEVEL 15
+struct Light_Source {
+    Light_Source *next;
+    Light_Source *prev;
+    u8 x, y, z;
+    u8 level;
+};
+
+struct Light_Source_List {
+    Light_Source *first;
+    Light_Source *last;
+    int count;
+};
+
 struct Chunk {
     Chunk *next;
     Chunk *prev;
@@ -43,6 +58,8 @@ struct Chunk {
     b32 dirty;
     Auto_Array<u64> opaque_geo;
     Auto_Array<u64> transparent_geo;
+
+    u8 *light_map;
 };
 
 inline internal V3_S32 get_chunk_position(V3_S32 position);

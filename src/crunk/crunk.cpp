@@ -1,7 +1,6 @@
 global World_Generator *world_generator;
 
 global Game_State *game_state;
-global Chunk_Manager *chunk_manager;
 
 global Texture_Atlas *g_block_atlas;
 global R_Handle icon_tex;
@@ -135,7 +134,8 @@ internal Chunk *chunk_new(Chunk_Manager *manager) {
         manager->free_chunks.count--;
     } else {
         result = push_array(manager->arena, Chunk, 1);
-        result->blocks = (Block_ID *)arena_push(manager->arena, sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
+        result->blocks = (Block_ID *)arena_push(manager->arena, sizeof(Block_ID) * CHUNK_BLOCKS);
+        result->light_map = (u8 *)arena_push(manager->arena, sizeof(u8) * CHUNK_BLOCKS);
     }
     DLLPushBack(manager->loaded_chunks.first, manager->loaded_chunks.last, result, next, prev);
     manager->loaded_chunks.count++;
@@ -370,6 +370,7 @@ internal void load_blocks() {
         Block *block = &blocks[BLOCK_AIR];
         block->flags |= BLOCK_FLAG_TRANSPARENT;
     }
+
     {
         Block *block = &blocks[BLOCK_STONE];
         set_block_face_all(block, str8_lit("stone.png"), 0);
@@ -426,6 +427,19 @@ internal void load_blocks() {
         Block *block = &blocks[BLOCK_BEDROCK];
         set_block_face_all(block, str8_lit("bedrock.png"), 0);
     }
+
+    {
+        Block *block = &blocks[BLOCK_TORCH];
+        set_block_face_all(block, str8_lit("torch.png"), 0);
+        block->flags |= BLOCK_FLAG_EMITS_LIGHT;
+    }
+
+    {
+        Block *block = &blocks[BLOCK_GLOWSTONE];
+        set_block_face_all(block, str8_lit("glowstone.png"), 0);
+        block->flags |= BLOCK_FLAG_EMITS_LIGHT;
+    }
+
 
     d3d11_upload_block_atlas(atlas);
     d3d11_upload_color_table();
@@ -548,8 +562,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             world_generator->arena = arena;
         }
 
-        init_world_generator(world_generator, 1337);
-        // update_world_generator(world_generator, 0, 0);
+        init_world_generator(world_generator, 45237089);
 
         //@Note Game State
         {
@@ -571,6 +584,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         update_chunk_load_list(chunk_manager, V3_Zero);
 
         game_state->player->position = V3_Zero;
+        game_state->player->position.y = 100.0;
         game_state->player->mining = block_id_zero();
 
         //@Note Camera
@@ -806,7 +820,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         new_block_position.y += face_normal.y;
         new_block_position.z += face_normal.z;
         Block_ID *block = get_block_from_position(chunk_manager, (s32)new_block_position.x, (s32)new_block_position.y, (s32)new_block_position.z);
-        block_place(block, BLOCK_WOOD);
+        block_place(block, BLOCK_GLOWSTONE);
 
         Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(player->position));
         chunk->dirty = true;
@@ -880,7 +894,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         int index = (int)((player->mining_t / player->mining_target_t) * (ArrayCount(mining_textures) - 1));
         R_Handle tex = mining_textures[index];
         draw_3d_mesh_begin(projection, view, tex, R_RasterizerState_Default);
-        V4_F32 color = v4_f32(0.34f, 0.29f, 0.19f, 1.0f);
+        V4_F32 color = v4_f32(0.14f, 0.20f, 0.13f, 0.8f);
         draw_cube(v3_f32(player->raycast.hit) - fill_v3_f32(0.01f), 1.02f, make_rect(0.0f, 0.0f, 1.0f, 1.0f), color, FACE_MASK_NIL);
     }
 

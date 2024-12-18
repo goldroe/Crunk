@@ -7,7 +7,7 @@ inline internal Block *get_basic_block(Block_ID block) {
 }
 
 inline internal f32 block_mining_time(Block_ID *block) {
-    return 0.7f;
+    return 0.4f;
 }
 
 inline internal Block_ID *block_id_zero() {
