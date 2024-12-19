@@ -47,9 +47,13 @@ inline internal char *block_to_string(Block_ID block) {
 }
 
 inline internal Block_ID *block_at(Chunk *chunk, int x, int y, int z) {
+    return &chunk->blocks[x + y * CHUNK_DEPTH + z * CHUNK_SIZE];
+}
+
+inline internal Block_ID *block_at_safe(Chunk *chunk, int x, int y, int z) {
     Block_ID *result = block_id_zero();
     if (chunk) {
-        result = &chunk->blocks[x + y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE];
+        result = &chunk->blocks[x + y * CHUNK_DEPTH + z * CHUNK_SIZE];
     }
     return result;
 }
@@ -58,13 +62,13 @@ inline internal bool block_is_active(Block_ID block) {
     return block != BLOCK_AIR;
 }
 
-inline internal bool block_is_opaque(Block *block) {
-    return !(block->flags & BLOCK_FLAG_TRANSPARENT);
-}
-
 inline internal bool block_is_opaque(Block_ID block) {
     Block *basic_block = get_basic_block(block);
     return !(basic_block->flags & BLOCK_FLAG_TRANSPARENT);
+}
+
+inline internal bool block_is_opaque(Block *block) {
+    return !(block->flags & BLOCK_FLAG_TRANSPARENT);
 }
 
 inline internal void block_place(Block_ID *block, Block_ID value) {
