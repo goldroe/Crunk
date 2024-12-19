@@ -151,7 +151,7 @@ internal void light_fill(Arena *arena, Light_Source_List *light_sources, u8 *lig
     }
 }
 
-internal void load_chunk_mesh(Chunk *chunk) {
+internal void load_chunk_mesh(Chunk *chunk, int hour) {
     chunk->opaque_geo.reset_count();
     chunk->transparent_geo.reset_count();
 
@@ -163,6 +163,21 @@ internal void load_chunk_mesh(Chunk *chunk) {
     MemoryZero(chunk->light_map, sizeof(u8) * CHUNK_BLOCKS);
 
     //@Note Generate light map
+
+    //@Note Surface lighting sources
+    for (int x = 0; x < CHUNK_SIZE; x++) {
+        for (int z = 0; z < CHUNK_SIZE; z++) {
+            for (int y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+                Block_ID *block = block_at(chunk, x, y, z);
+                if (block_is_active(*block)) {
+                    chunk->light_map[x + y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE] = MAX_LIGHT_LEVEL;
+                    break;
+                }
+            }
+        }
+    }
+
+    //@Note Block light sources
     for (int y = 0; y < CHUNK_HEIGHT; y++) {
         for (int x = 0; x < CHUNK_SIZE; x++) {
             for (int z = 0; z < CHUNK_SIZE; z++) {
@@ -182,6 +197,7 @@ internal void load_chunk_mesh(Chunk *chunk) {
         }
     }
 
+    //@Note Light Flood Fill
     while (light_sources.count > 0) {
         Light_Source *node = light_sources.first;
         DLLRemove(light_sources.first, light_sources.last, node, next, prev);
@@ -191,10 +207,8 @@ internal void load_chunk_mesh(Chunk *chunk) {
 
         if (node->x < CHUNK_SIZE - 1) light_fill(arena, &light_sources, chunk->light_map, node->x + 1, node->y, node->z, node->level - 1);
         if (node->x > 0) light_fill(arena, &light_sources, chunk->light_map, node->x - 1, node->y, node->z, node->level - 1);
-
         if (node->y < CHUNK_HEIGHT - 1) light_fill(arena, &light_sources, chunk->light_map, node->x, node->y + 1, node->z, node->level - 1);
         if (node->y > 0) light_fill(arena, &light_sources, chunk->light_map, node->x, node->y - 1, node->z, node->level - 1);
-
         if (node->z < CHUNK_SIZE - 1) light_fill(arena, &light_sources, chunk->light_map, node->x, node->y, node->z + 1, node->level - 1);
         if (node->z > 0) light_fill(arena, &light_sources, chunk->light_map, node->x, node->y, node->z - 1, node->level - 1);
     }
