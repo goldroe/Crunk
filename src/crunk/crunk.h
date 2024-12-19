@@ -72,6 +72,8 @@ struct Player {
     f32 jump_t;
 };
 
+#define SECONDS_PER_DAY 10000
+
 struct Game_State {
     Arena *arena;
     V2_S32 client_dim;
@@ -85,6 +87,7 @@ struct Game_State {
     int ticks_per_day;
 
     int day_t;
+    int hour;
 
     Frustum frustum;
 

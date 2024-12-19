@@ -7,6 +7,7 @@ global R_Handle icon_tex;
 global R_Handle sun_tex;
 
 global R_Handle mining_textures[10];
+global R_Handle moon_tex;
 
 internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     Ray result;
@@ -393,6 +394,12 @@ internal void load_blocks() {
     }
 
     {
+        Block *block = &blocks[BLOCK_GRASS_PLANT];
+        set_block_face_all(block, str8_lit("grass.png"), 5) ; 
+        block->flags |= BLOCK_FLAG_TRANSPARENT;
+    }
+
+    {
         Block *block = &blocks[BLOCK_SAND];
         set_block_face_all(block, str8_lit("sand.png"), 0);
         block->step_type = STEP_SAND;
@@ -543,6 +550,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
         icon_tex = load_texture(str8_lit("data/assets/icons.png"));
         sun_tex = load_texture(str8_lit("data/assets/environment/sun.png"));
+        moon_tex = load_texture(str8_lit("data/assets/environment/moon_phases.png"));
 
         mining_textures[0] = load_texture(str8_lit("data/assets/misc/destroy_stage_0.png"));
         mining_textures[1] = load_texture(str8_lit("data/assets/misc/destroy_stage_1.png"));
@@ -562,7 +570,8 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             world_generator->arena = arena;
         }
 
-        init_world_generator(world_generator, 45237089);
+        srand((unsigned int)time(NULL));
+        init_world_generator(world_generator, rand());
 
         //@Note Game State
         {
@@ -599,9 +608,11 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
         game_state->frustum = make_frustum(game_state->camera, 0.1f, 1200.0f);
 
-        int seconds_per_day = 600;
         game_state->ticks_per_second = 10;
-        game_state->day_t = 0;
+        game_state->ticks_per_day = SECONDS_PER_DAY * game_state->ticks_per_second;
+
+        game_state->hour = 12;
+        game_state->day_t = (int)(game_state->hour * (game_state->ticks_per_day / 24.0f));
     }
 
     input_begin(window_handle, event_list);
@@ -778,7 +789,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         chunk_manager->chunk_position = chunk_position;
     }
 
-    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 256.0f, &player->raycast);
+    voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &player->raycast);
 
     if (key_pressed(OS_KEY_F1)) {
         game_state->mesh_debug = !game_state->mesh_debug;
@@ -827,14 +838,26 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     }
 
     int ticks_elapsed = 10;
+    game_state->ticks_per_day = SECONDS_PER_DAY * game_state->ticks_per_second;
 
-    int seconds_per_day = 600;
-    game_state->ticks_per_day = seconds_per_day * game_state->ticks_per_second;
 
+    //@Note Day time
     game_state->day_t += ticks_elapsed;
     if (game_state->day_t > game_state->ticks_per_day) {
         game_state->day_t = 0;
     }
+
+    {
+        int hour = (int)(24 * game_state->day_t / (f32)game_state->ticks_per_day);
+        //@Note Update sky light
+        if (hour != game_state->hour) {
+            for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
+                chunk->dirty = true;
+            }
+        }
+        game_state->hour = hour;
+    }
+
 
     if (player->raycast.block != player->mining) {
         player->mining_t = 0;
@@ -850,7 +873,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
         if (chunk->dirty) {
             chunk->dirty = false;
-            load_chunk_mesh(chunk);
+            load_chunk_mesh(chunk, game_state->hour);
         }
     }
 
@@ -861,7 +884,8 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     draw_begin(window_handle);
 
     //@Note Draw Sun Texture
-    draw_sun(projection, view, sun_tex);
+    R_Handle celestial_body = (game_state->hour >= 4  && game_state->hour <= 18) ? sun_tex : moon_tex;
+    draw_sun(projection, view, celestial_body);
     {
         V3_F32 position = V3_Zero;
         position.x = 0.0f;
@@ -878,13 +902,19 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         V3_F32 tr = position + 0.5f * size * right + 0.5f * size * up;
         V3_F32 br = position + 0.5f * size * right - 0.5f * size * up;
 
-        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
-        draw_3d_vertex(br, V4_One, v2_f32(1.0f, 1.0f));
-        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
+        Rect src = make_rect(0.0f, 0.0f, 1.0f, 1.0f);
+        if (celestial_body == moon_tex) {
+            src.x1 = 0.25f;
+            src.y1 = 0.5f;
+        }
 
-        draw_3d_vertex(tr, V4_One, v2_f32(1.0f, 0.0f));
-        draw_3d_vertex(tl, V4_One, v2_f32(0.0f, 0.0f));
-        draw_3d_vertex(bl, V4_One, v2_f32(0.0f, 1.0f));
+        draw_3d_vertex(bl, V4_One, v2_f32(src.x0, src.y0));
+        draw_3d_vertex(br, V4_One, v2_f32(src.x1, src.y0));
+        draw_3d_vertex(tr, V4_One, v2_f32(src.x1, src.y1));
+
+        draw_3d_vertex(tr, V4_One, v2_f32(src.x1, src.y1));
+        draw_3d_vertex(tl, V4_One, v2_f32(src.x0, src.y1));
+        draw_3d_vertex(bl, V4_One, v2_f32(src.x0, src.y0));
     }
 
     draw_chunks(chunk_manager->loaded_chunks, player->position, game_state->frustum, projection, view, g_block_atlas, game_state->mesh_debug ? R_RasterizerState_Wireframe : R_RasterizerState_Default);
@@ -920,13 +950,15 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     //@DEBUG
     ui_labelf("delta: %.4fms", 1000.0 * dt);
-    ui_labelf("world:%.2f %.2f %.2f chunk:%d %d %d", player->position.x, player->position.y, player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
-    ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
+    ui_labelf("world:%lld %lld %lld chunk:%d %d %d", (s64)player->position.x, (s64)player->position.y, (s64)player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+    ui_labelf("day: %d hour: %d", game_state->day_t, game_state->hour);
+
+    // ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
 
     {
         if (player->raycast.block != block_id_zero()) {
             Block_ID *block = get_block_from_position(chunk_manager, (s32)player->raycast.hit.x, (s32)player->raycast.hit.y, (s32)player->raycast.hit.z);
-            ui_labelf("raycast: %.2f %.2f %.2f block:%s face: %s", player->raycast.hit.x, player->raycast.hit.y, player->raycast.hit.z, block_to_string(*block), face_to_string(player->raycast.face));
+            ui_labelf("raycast: %lld %lld %.2f block:%s face: %s", (s64)player->raycast.hit.x, (s64)player->raycast.hit.y, (s64)player->raycast.hit.z, block_to_string(*block), face_to_string(player->raycast.face));
         }
     }
 

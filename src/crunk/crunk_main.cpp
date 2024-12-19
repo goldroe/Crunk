@@ -6,6 +6,8 @@
 
 #include "FastNoiseLite/FastNoiseLite.h"
 
+#include <time.h>
+
 #include <ft2build.h>
 #include <freetype/freetype.h>
 
