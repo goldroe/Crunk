@@ -8,6 +8,8 @@ global R_D3D11_State *r_d3d11_state;
 global ID3D11ShaderResourceView *g_atlas_uv_buffer_res;
 global ID3D11ShaderResourceView *g_block_color_table_res;
 
+global ID3D11Buffer *chunk_index_buffer;
+
 global const char *r_d3d11_g_shader_rect =
     "cbuffer Constants : register(b0) {\n"
     "    matrix xform;\n"
@@ -219,7 +221,9 @@ internal bool d3d11_make_shader_from_file(String8 file_name, const char *vs_entr
     OS_Handle file_handle = os_open_file(file_name, OS_AccessFlag_Read);
     String8 source = os_read_file_string(file_handle);
     os_close_handle(file_handle);
-    return d3d11_make_shader(file_name, source, vs_entry, ps_entry, items, item_count, vshader_out, pshader_out, input_layout_out);
+    bool result = d3d11_make_shader(file_name, source, vs_entry, ps_entry, items, item_count, vshader_out, pshader_out, input_layout_out);
+    free(source.data);
+    return result;
 }
 
 internal ID3D11Buffer *d3d11_make_uniform_buffer(u32 size) {
@@ -711,20 +715,23 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             //@Note Render Opaque Blocks
             for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
+                if (chunk_is_dirty(chunk)) continue;
+                
                 V4_S32 chunk_world_position = V4_Zero;
                 chunk_world_position.x = chunk->position.x * CHUNK_SIZE;
                 chunk_world_position.y = chunk->position.y * CHUNK_HEIGHT;
                 chunk_world_position.z = chunk->position.z * CHUNK_SIZE;
 
                 chunk_uniform.world_position = chunk_world_position;
-
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
                 if (chunk->opaque_geo.count > 0) {
                     ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->opaque_geo.data, chunk->opaque_geo.count * sizeof(u64));
+                    int index_count = (int)chunk->opaque_geo.count * 6 / 4;
                     UINT stride = sizeof(u64), offset = 0;
                     r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                    r_d3d11_state->device_context->Draw((UINT)chunk->opaque_geo.count, 0);
+                    r_d3d11_state->device_context->IASetIndexBuffer(chunk_index_buffer, DXGI_FORMAT_R32_UINT, 0);
+                    r_d3d11_state->device_context->DrawIndexed(index_count, 0, 0);
                     vertex_buffer->Release();
                 }
             }
@@ -733,20 +740,23 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             //@Note Render Transparent Blocks
             for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
+                if (chunk_is_dirty(chunk)) continue;
+
                 V4_S32 chunk_world_position = V4_Zero;
                 chunk_world_position.x = chunk->position.x * CHUNK_SIZE;
                 chunk_world_position.y = chunk->position.y * CHUNK_HEIGHT;
                 chunk_world_position.z = chunk->position.z * CHUNK_SIZE;
 
                 chunk_uniform.world_position = chunk_world_position;
-
                 d3d11_upload_uniform(chunk_uniform_buffer, (void *)&chunk_uniform, sizeof(D3D11_Uniform_BlocksPerChunk));
 
                 if (chunk->transparent_geo.count > 0) {
                     ID3D11Buffer *vertex_buffer = d3d11_make_vertex_buffer(chunk->transparent_geo.data, chunk->transparent_geo.count * sizeof(u64));
+                    int index_count = (int)chunk->transparent_geo.count * 6 / 4;
                     UINT stride = sizeof(u64), offset = 0;
                     r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
-                    r_d3d11_state->device_context->Draw((UINT)chunk->transparent_geo.count, 0);
+                    r_d3d11_state->device_context->IASetIndexBuffer(chunk_index_buffer, DXGI_FORMAT_R32_UINT, 0);
+                    r_d3d11_state->device_context->DrawIndexed(index_count, 0, 0);
                     vertex_buffer->Release();
                 }
             }
@@ -962,7 +972,7 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
 }
 
 internal void d3d11_render_initialize(HWND window_handle) {
-    Arena *arena = arena_alloc(get_virtual_allocator(), MB(20));
+    Arena *arena = arena_alloc(get_virtual_allocator(), MB(4));
     r_d3d11_state = push_array(arena, R_D3D11_State, 1);
     r_d3d11_state->arena = arena;
 
@@ -1170,7 +1180,6 @@ internal void d3d11_render_initialize(HWND window_handle) {
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_Blocks] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Blocks));
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_BlocksPerChunk] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_BlocksPerChunk));
 
-
     D3D11_INPUT_ELEMENT_DESC sun_ilay[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(R_3D_Vertex, pos),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_3D_Vertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -1178,4 +1187,21 @@ internal void d3d11_render_initialize(HWND window_handle) {
     };
     d3d11_make_shader_from_file(str8_lit("data/shaders/sun.hlsl"), "vs_main", "ps_main", sun_ilay, ArrayCount(sun_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Sun], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Sun], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Sun]);
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_Sun] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Sun));
+
+    {
+        int vertex_count = CHUNK_BLOCKS * 6 * 4; // blocks * faces * face_vertices
+        u32 index_count = vertex_count * 6 / 4;
+        u32 *indices = (u32 *)malloc(index_count * sizeof(u32));
+        for (int index = 0, it = 0; index < vertex_count; index += 4) {
+            indices[it++] = index;
+            indices[it++] = index + 1;
+            indices[it++] = index + 2;
+            indices[it++] = index;
+            indices[it++] = index + 2;
+            indices[it++] = index + 3;
+        }
+        chunk_index_buffer = d3d11_make_index_buffer(indices, index_count * sizeof(u32));
+
+        free(indices);
+    }
 }
