@@ -8,14 +8,7 @@ struct World_Generator {
     s32 region_z;
 
     FastNoiseLite height_noise;
-
-    // noise::module::Perlin *height_noise;
-    // noise::utils::NoiseMap *height_noise_map;
-    // noise::utils::NoiseMapBuilderPlane *height_noise_map_builder;
-
-    // noise::module::Perlin *tree_noise;
-    // noise::utils::NoiseMap *tree_noise_map;
-    // noise::utils::NoiseMapBuilderPlane *tree_noise_map_builder;
+    FastNoiseLite vegetation_noise;
 };
 
 #endif // WORLD_GEN_H
