@@ -6,7 +6,7 @@ global Draw_Bucket *draw_bucket;
 
 internal void draw_begin(OS_Handle window_handle) {
     if (draw_arena == NULL) {
-        draw_arena = arena_alloc(get_virtual_allocator(), MB(128));
+        draw_arena = arena_alloc(get_virtual_allocator(), MB(4));
     }
 
     if (draw_temp_arena == NULL) {
