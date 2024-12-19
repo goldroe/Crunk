@@ -9,6 +9,9 @@ global R_Handle sun_tex;
 global R_Handle mining_textures[10];
 global R_Handle moon_tex;
 
+global int max_worker_threads = 16;
+global int worker_threads = 0;
+
 internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     Ray result;
     result.origin = origin;
@@ -105,6 +108,7 @@ internal R_Handle load_texture(String8 file_name) {
     int x, y, n;
     u8 *data = stbi_load((char *)file_name.data, &x, &y, &n, 4);
     R_Handle tex = d3d11_create_texture(R_Tex2DFormat_R8G8B8A8, v2_s32(x, y), data);
+    stbi_image_free(data);
     return tex;
 }
 
@@ -126,6 +130,24 @@ internal f32 get_height_map_value(Texture_Map *map, s32 x, s32 y) {
     f32 result = 0.f;
     result = (map->data[y * map->size.x + x]) / 255.0f;
     return result;
+}
+
+DWORD WINAPI update_chunk_thread(LPVOID lpParam) {
+    Chunk *chunk = (Chunk *)lpParam;
+    load_chunk_mesh(chunk);
+    // printf("DONE LOADING MESH");
+    return 0;
+}
+
+DWORD WINAPI generate_chunk_thread(LPVOID lpParam) {
+    s64 start = get_wall_clock();
+    Chunk *chunk = (Chunk *)lpParam;
+    generate_chunk(chunk_manager, world_generator, chunk);
+    s64 end = get_wall_clock();
+
+    worker_threads--;
+    printf("GENERATED CHUNK: %fms\n", get_ms_elapsed(start, end));
+    return 0;
 }
 
 internal Chunk *chunk_new(Chunk_Manager *manager) {
@@ -172,10 +194,13 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
         Chunk *chunk = chunk_new(manager);
         MemoryZero(chunk->blocks, CHUNK_BLOCKS * sizeof(Block_ID));
         chunk->position = v3_s32(x, 0, z);
-        generate_chunk(manager, world_generator, chunk);
-        chunk->dirty = true;
+        // chunk->opaque_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
+        // chunk->transparent_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
+        chunk->flags = CHUNK_FLAG_NIL;
+        chunk->flags |= CHUNK_FLAG_DIRTY;
     }
 }
+
 
 internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_position) {
     //@Note Free chunks
@@ -187,8 +212,8 @@ internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_positi
         manager->free_chunks.count++;
     }
 
-    load_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
-    load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
+    // load_chunk_at(manager, chunk_position.x,  0, chunk_position.z);
+    // load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
     V3_S32 dim = v3_s32(4, 0, 4);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
@@ -212,7 +237,7 @@ internal void deserialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
     Assert(data_size > 0);
 
     MemoryCopy((void *)&chunk->position, chunk_data, sizeof(chunk->position)); 
-    MemoryCopy((void *)chunk->blocks, chunk_data + sizeof(chunk->position), sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
+    MemoryCopy((void *)chunk->blocks, chunk_data + sizeof(chunk->position), sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_DEPTH);
 
     arena_release(scratch);
 }
@@ -233,8 +258,8 @@ internal void serialize_chunk(Chunk_Manager *manager, Chunk *chunk) {
         dst += sizeof(chunk->position.e[i]);
     }
 
-    MemoryCopy(dst, chunk->blocks, sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE);
-    dst += sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_SIZE * CHUNK_SIZE;
+    MemoryCopy(dst, chunk->blocks, sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_DEPTH);
+    dst += sizeof(Block_ID) * CHUNK_HEIGHT * CHUNK_DEPTH;
 
     u64 size = dst - buffer;
 
@@ -260,9 +285,9 @@ internal void set_block_face_all(Block *block, String8 texture_name, u8 color_id
 }
 
 internal void load_blocks() {
-    Arena *arena = arena_alloc(get_virtual_allocator(), MB(1));
+    Arena *arena = arena_alloc(get_virtual_allocator(), KB(256));
 
-    Arena *scratch = arena_alloc(get_malloc_allocator(), KB(64));
+    Arena *scratch = arena_alloc(get_virtual_allocator(), MB(1));
 
     // --------------------------------------
     //@Note Pack block/item textures
@@ -276,7 +301,7 @@ internal void load_blocks() {
     atlas->dim.x = MAX_ATLAS_X * 64;
     atlas->dim.y = MAX_ATLAS_Y * 64;
 
-    int max_texture_count = atlas->dim.x * atlas->dim.y;
+    int max_texture_count = atlas->region_dim.x * atlas->region_dim.y;
     atlas->texture_regions = push_array(arena, Texture_Region, max_texture_count);
     atlas->region_hash_table_size = 128;
     atlas->region_hash_table = push_array(arena, Texture_Region_Bucket, atlas->region_hash_table_size);
@@ -340,11 +365,9 @@ internal void load_blocks() {
         texture_count++;
     }
 
-    arena_release(scratch);
-
     //@Note Pack the textures into atlas
     const int bytes_per_pixel = 4;
-    u8 *bitmap = push_array(arena, u8, atlas->dim.x * atlas->dim.y * bytes_per_pixel);
+    u8 *bitmap = push_array(scratch, u8, atlas->dim.x * atlas->dim.y * bytes_per_pixel);
     for (int tex_idx = 0; tex_idx < texture_count; tex_idx++) {
         Texture_Region *region = &atlas->texture_regions[tex_idx];
         int src_pitch = atlas->region_dim.x * bytes_per_pixel;
@@ -358,9 +381,17 @@ internal void load_blocks() {
             dst += dst_pitch;
             src += src_pitch;
         }
+
+        stbi_image_free(region->data);
     }
     atlas->texture_region_count = texture_count;
     atlas->tex_handle = d3d11_create_texture_mipmap(R_Tex2DFormat_R8G8B8A8, atlas->dim, bitmap);
+
+    d3d11_upload_block_atlas(atlas);
+    d3d11_upload_color_table();
+
+    arena_release(scratch);
+    // arena_release(arena);
 
     // --------------------------------------
     //@Note Configure all block types
@@ -448,8 +479,6 @@ internal void load_blocks() {
     }
 
 
-    d3d11_upload_block_atlas(atlas);
-    d3d11_upload_color_table();
 }
 
 #define SIGN(x) (x > 0 ? 1 : (x < 0 ? -1 : 0))
@@ -542,7 +571,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         V2_F32 dim = os_get_window_dim(window_handle);
 
         Arena *font_arena = arena_alloc(get_virtual_allocator(), MB(4));
-        default_fonts[FONT_DEFAULT] = load_font(font_arena, str8_lit("data/assets/fonts/consolas.ttf"), 16);
+        default_fonts[FONT_DEFAULT] = load_font(font_arena, str8_lit("data/assets/fonts/consolas.ttf"), 20);
 
         ui_set_state(ui_state_new());
 
@@ -672,7 +701,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         f32 speed = 10.0f;
 
         if (key_down(OS_KEY_SPACE)) {
-            speed = 500.0f; 
+            speed = 40.0f; 
         }
 
         V3_F32 direction = normalize_v3_f32(game_state->camera.forward * forward_dt + game_state->camera.right * right_dt + game_state->camera.up * up_dt);
@@ -789,6 +818,19 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         chunk_manager->chunk_position = chunk_position;
     }
 
+
+    for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
+        if (!(chunk->flags & CHUNK_FLAG_GENERATED) && !(chunk->flags & CHUNK_FLAG_GENERATING)) {
+            // generate_chunk(chunk_manager, world_generator, chunk);
+            if (worker_threads + 1 < max_worker_threads) {
+                worker_threads++;
+                DWORD thread_id;
+                CreateThread(NULL, 0, generate_chunk_thread, (void *)chunk, 0, &thread_id);
+                printf("GENERATING ON THREAD %d\n", thread_id);
+            }
+        }
+    }
+
     voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &player->raycast);
 
     if (key_pressed(OS_KEY_F1)) {
@@ -818,7 +860,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
                 block_place(player->mining, BLOCK_AIR);
 
                 Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(player->position));
-                chunk->dirty = true;
+                chunk->flags |= CHUNK_FLAG_DIRTY;
             }
         }
     }
@@ -834,7 +876,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         block_place(block, BLOCK_GLOWSTONE);
 
         Chunk *chunk = get_chunk_from_position(chunk_manager, get_chunk_position(player->position));
-        chunk->dirty = true;
+        chunk->flags |= CHUNK_FLAG_DIRTY;
     }
 
     int ticks_elapsed = 10;
@@ -849,12 +891,9 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     {
         int hour = (int)(24 * game_state->day_t / (f32)game_state->ticks_per_day);
-        //@Note Update sky light
-        if (hour != game_state->hour) {
-            for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-                chunk->dirty = true;
-            }
-        }
+        //@Todo Update light map
+        // if (hour != game_state->hour) {
+        // }
         game_state->hour = hour;
     }
 
@@ -870,10 +909,20 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     //@Note Update Frustum
     game_state->frustum = make_frustum(game_state->camera, 0.1f, 1000.0f);
 
-    for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
-        if (chunk->dirty) {
-            chunk->dirty = false;
-            load_chunk_mesh(chunk, game_state->hour);
+    {
+        for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
+            V3_F32 chunk_position = v3_f32_from_v3_s32(chunk->position);
+            chunk_position.x *= CHUNK_SIZE;
+            chunk_position.y *= CHUNK_HEIGHT;
+            chunk_position.z *= CHUNK_SIZE;
+            V3_F32 chunk_size = v3_f32(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
+            AABB box = make_aabb(chunk_position, chunk_size);
+            if (chunk_is_generated(chunk) && chunk_is_dirty(chunk) && aabb_in_frustum(game_state->frustum, box)) {
+                load_chunk_mesh(chunk);
+                // DWORD thread_id = 0;
+                // CreateThread(NULL, 0, update_chunk_thread, (void *)chunk, 0, &thread_id);
+                // printf("UPDATING CHUNK ON THREAD: %d\n", thread_id);
+            }
         }
     }
 
@@ -951,7 +1000,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     //@DEBUG
     ui_labelf("delta: %.4fms", 1000.0 * dt);
     ui_labelf("world:%lld %lld %lld chunk:%d %d %d", (s64)player->position.x, (s64)player->position.y, (s64)player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
-    ui_labelf("day: %d hour: %d", game_state->day_t, game_state->hour);
+    // ui_labelf("day: %d hour: %d", game_state->day_t, game_state->hour);
 
     // ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
 
