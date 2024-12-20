@@ -9,9 +9,6 @@ global R_Handle sun_tex;
 global R_Handle mining_textures[10];
 global R_Handle moon_tex;
 
-global int max_worker_threads = 16;
-global int worker_threads = 0;
-
 internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     Ray result;
     result.origin = origin;
@@ -133,9 +130,12 @@ internal f32 get_height_map_value(Texture_Map *map, s32 x, s32 y) {
 }
 
 DWORD WINAPI update_chunk_thread(LPVOID lpParam) {
+    s64 start = get_wall_clock();
     Chunk *chunk = (Chunk *)lpParam;
     load_chunk_mesh(chunk);
-    // printf("DONE LOADING MESH");
+    s64 end = get_wall_clock();
+
+    printf("BAKING CHUNK: %fms\n", get_ms_elapsed(start, end));
     return 0;
 }
 
@@ -145,7 +145,6 @@ DWORD WINAPI generate_chunk_thread(LPVOID lpParam) {
     generate_chunk(chunk_manager, world_generator, chunk);
     s64 end = get_wall_clock();
 
-    worker_threads--;
     printf("GENERATED CHUNK: %fms\n", get_ms_elapsed(start, end));
     return 0;
 }
@@ -214,7 +213,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_positi
 
     // load_chunk_at(manager, chunk_position.x,  0, chunk_position.z);
     // load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
-    V3_S32 dim = v3_s32(4, 0, 4);
+    V3_S32 dim = v3_s32(16, 0, 16);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -818,15 +817,17 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         chunk_manager->chunk_position = chunk_position;
     }
 
+    player->chunk = get_chunk_from_position(chunk_manager, chunk_position);
+
 
     for (Chunk *chunk = chunk_manager->loaded_chunks.first; chunk; chunk = chunk->next) {
         if (!(chunk->flags & CHUNK_FLAG_GENERATED) && !(chunk->flags & CHUNK_FLAG_GENERATING)) {
-            // generate_chunk(chunk_manager, world_generator, chunk);
-            if (worker_threads + 1 < max_worker_threads) {
-                worker_threads++;
+            if (chunk != player->chunk) {
                 DWORD thread_id;
                 CreateThread(NULL, 0, generate_chunk_thread, (void *)chunk, 0, &thread_id);
                 printf("GENERATING ON THREAD %d\n", thread_id);
+            } else {
+                generate_chunk(chunk_manager, world_generator, chunk);
             }
         }
     }
@@ -882,7 +883,6 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     int ticks_elapsed = 10;
     game_state->ticks_per_day = SECONDS_PER_DAY * game_state->ticks_per_second;
 
-
     //@Note Day time
     game_state->day_t += ticks_elapsed;
     if (game_state->day_t > game_state->ticks_per_day) {
@@ -906,6 +906,8 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     // So that basically we pass player position relative to the chunk so everything is in world space
     game_state->camera.position = player->position + 1.5f * v3_f64(0, 1, 0);
 
+    game_state->camera.aspect = dim.x / dim.y;
+
     //@Note Update Frustum
     game_state->frustum = make_frustum(game_state->camera, 0.1f, 1000.0f);
 
@@ -917,11 +919,14 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             chunk_position.z *= CHUNK_SIZE;
             V3_F32 chunk_size = v3_f32(CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE);
             AABB box = make_aabb(chunk_position, chunk_size);
-            if (chunk_is_generated(chunk) && chunk_is_dirty(chunk) && aabb_in_frustum(game_state->frustum, box)) {
-                load_chunk_mesh(chunk);
-                // DWORD thread_id = 0;
-                // CreateThread(NULL, 0, update_chunk_thread, (void *)chunk, 0, &thread_id);
-                // printf("UPDATING CHUNK ON THREAD: %d\n", thread_id);
+            if (chunk_is_generated(chunk) && chunk_is_dirty(chunk) && !chunk_is_baking(chunk) && aabb_in_frustum(game_state->frustum, box)) {
+                if (chunk != player->chunk) {
+                    DWORD thread_id = 0;
+                    CreateThread(NULL, 0, update_chunk_thread, (void *)chunk, 0, &thread_id);
+                    printf("BAKING MESH ON THREAD %d\n", thread_id);
+                } else {
+                    load_chunk_mesh(chunk);
+                }
             }
         }
     }

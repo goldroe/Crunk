@@ -1,5 +1,9 @@
 global Chunk_Manager *chunk_manager;
 
+inline internal bool chunk_is_baking(Chunk *chunk) {
+    return chunk->flags & CHUNK_FLAG_BAKING;
+}
+
 inline internal bool chunk_is_generated(Chunk *chunk) {
     return chunk->flags & CHUNK_FLAG_GENERATED;
 }

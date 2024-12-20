@@ -58,8 +58,8 @@ struct Player {
     V3_F64 position;
     V3_F32 velocity;
 
-    Voxel_Raycast raycast;
     Chunk *chunk;
+    Voxel_Raycast raycast;
 
     Block_ID *mining;
     f32 mining_t;
