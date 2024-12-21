@@ -111,6 +111,7 @@ enum OS_Key {
 
 enum OS_Cursor {
     OS_Cursor_Nil,
+    OS_Cursor_Hidden,
     OS_Cursor_Arrow,
     OS_Cursor_Ibeam,
     OS_Cursor_Hand,

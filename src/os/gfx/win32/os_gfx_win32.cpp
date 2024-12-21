@@ -39,7 +39,7 @@ internal LRESULT CALLBACK win32_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
 
     case WM_SETCURSOR:
     {
-        // SetCursor(win32_hcursor);
+        SetCursor(win32_hcursor);
         break;
     }
 
@@ -198,6 +198,9 @@ internal void os_set_cursor(OS_Cursor cursor) {
     local_persist HCURSOR hcursor;
     switch (cursor) {
     default:
+    case OS_Cursor_Hidden:
+        hcursor = NULL;
+        break;
     case OS_Cursor_Arrow:
         hcursor = LoadCursorA(NULL, IDC_ARROW);
         break;
