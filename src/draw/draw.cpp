@@ -204,6 +204,42 @@ internal void draw_textf(Font *font, V4_F32 color, V2_F32 offset, const char *fm
     draw_text(string, font, color, offset);
 }
 
+internal void draw_ui_graph(f32 *values, int values_count, f32 line_width, f32 max_line_height, V2_F32 start, V4_F32 color) {
+    R_Handle tex = draw_bucket->tex;
+    R_Params_Kind params_kind = draw_bucket->params_kind;
+    R_Batch_Node *node = draw_bucket->batches.last;
+    if (!node || tex != r_handle_zero() || params_kind != R_ParamsKind_UI) {
+        node = push_array(draw_arena, R_Batch_Node, 1);
+        R_Params_UI *params_ui = push_array(draw_arena, R_Params_UI, 1);
+        node->batch.params.kind = R_ParamsKind_UI;
+        node->batch.params.params_ui = params_ui;
+        params_ui->tex = r_handle_zero();
+        params_ui->clip = draw_bucket->clip;
+        params_ui->xform = draw_bucket->xform;
+        draw_push_batch_node(&draw_bucket->batches, node);
+        draw_bucket->params_kind = R_ParamsKind_UI;
+        draw_bucket->tex = r_handle_zero();
+        node->batch.v = (u8 *)draw_arena->current + draw_arena->current->pos;
+    }
+
+    f32 x = start.x;
+    for (int i = 0; i < values_count; i++) {
+        f32 value = values[i];
+        f32 line_height = value * max_line_height;
+        Rect line_rect;
+        line_rect.x0 = x + 1.0f;
+        line_rect.x1 = line_rect.x0 + line_width - 2.0f;
+        //@Note Draws top-bottom so y1 is the baseline of the graph
+        line_rect.y0 = start.y - line_height;
+        line_rect.y1 = line_rect.y0 + line_height;
+        
+        // Rect line_rect = make_rect(x + 1.0f, start.y, line_width - 2.0f, line_height);
+        R_2D_Rect rect = r_2d_rect(line_rect, rect_zero(), color, 0.0f, 0.0f);
+        draw_batch_push_rect(&node->batch, rect);
+        x += line_width;
+    }
+}
+
 internal void draw_ui_img(R_Handle img, Rect dst, Rect src, V4_F32 color) {
     R_Handle tex = draw_bucket->tex;
     R_Params_Kind params_kind = draw_bucket->params_kind;
