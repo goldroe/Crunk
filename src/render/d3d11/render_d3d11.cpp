@@ -713,7 +713,7 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             r_d3d11_state->device_context->OMSetBlendState(NULL, NULL, 0xffffffff);
 
             //@Note Render Opaque Blocks
-            for (int i = 0; i < sorted_chunks.count; i++) {
+            for (int i = (int)sorted_chunks.count - 1; i >= 0; i--) {
                 Chunk *chunk = sorted_chunks[i];
                 if (chunk_is_dirty(chunk)) continue;
                 
