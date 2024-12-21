@@ -30,9 +30,9 @@ internal void init_world_generator(World_Generator *generator, int seed) {
     FastNoiseLite *vegetation_noise = &generator->vegetation_noise;
     *vegetation_noise = FastNoiseLite(seed);
     vegetation_noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    vegetation_noise->SetFrequency(0.4f);
+    vegetation_noise->SetFrequency(0.5f);
     vegetation_noise->SetFractalType(FastNoiseLite::FractalType_FBm);
-    vegetation_noise->SetFractalOctaves(3);
+    vegetation_noise->SetFractalOctaves(4);
     vegetation_noise->SetFractalGain(1.0f);
     vegetation_noise->SetFractalLacunarity(1.75f);
 }
@@ -84,9 +84,9 @@ internal void generate_chunk(Chunk_Manager *manager, World_Generator *generator,
     }
 
     //@Note Vegetation
-    for (int y = 100; y >= 64; y--) {
     for (int x = 0; x <= CHUNK_SIZE; x ++) {
         for (int z = 0; z < CHUNK_SIZE; z ++) {
+            for (int y = 100; y >= 64; y--) {
                 if (*block_at(chunk, x, y - 1, z) == BLOCK_GRASS) {
                     f32 noise_x = x + (f32)position.x;
                     f32 noise_z = z + (f32)position.z;
