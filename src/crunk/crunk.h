@@ -92,6 +92,10 @@ struct Game_State {
     Frustum frustum;
 
     b32 mesh_debug;
+
+    b32 debug_menu;
+
+    f32 delta_frames[120];
 };
 
 #endif // CRUNK_H

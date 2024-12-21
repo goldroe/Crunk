@@ -59,6 +59,7 @@
 #include "atlas.cpp"
 #include "frustum.cpp"
 #include "block.cpp"
+#include "profiling.cpp"
 #include "chunk.cpp"
 #include "crunk.cpp"
 
@@ -85,7 +86,7 @@ int main() {
 
     HWND hWnd = CreateWindowA(class_name, "Crunk", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinstance, NULL);
 
-    ShowCursor(FALSE);
+    // ShowCursor(FALSE);
 
     OS_Handle window_handle = (OS_Handle)hWnd;
 
@@ -141,7 +142,10 @@ int main() {
 
         s64 end_clock = get_wall_clock();
         dt = get_ms_elapsed(last_clock, end_clock);
+        push_frame_delta(dt);
+
         last_clock = end_clock;
+
     }
 
     return 0;

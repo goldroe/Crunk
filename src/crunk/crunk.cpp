@@ -135,7 +135,7 @@ DWORD WINAPI update_chunk_thread(LPVOID lpParam) {
     load_chunk_mesh(chunk);
     s64 end = get_wall_clock();
 
-    printf("BAKING CHUNK: %fms\n", get_ms_elapsed(start, end));
+    // printf("BAKING CHUNK: %fms\n", get_ms_elapsed(start, end));
     return 0;
 }
 
@@ -145,7 +145,7 @@ DWORD WINAPI generate_chunk_thread(LPVOID lpParam) {
     generate_chunk(chunk_manager, world_generator, chunk);
     s64 end = get_wall_clock();
 
-    printf("GENERATED CHUNK: %fms\n", get_ms_elapsed(start, end));
+    // printf("GENERATED CHUNK: %fms\n", get_ms_elapsed(start, end));
     return 0;
 }
 
@@ -193,8 +193,8 @@ internal void load_new_chunk_at(Chunk_Manager *manager, s32 x, s32 y, s32 z) {
         Chunk *chunk = chunk_new(manager);
         MemoryZero(chunk->blocks, CHUNK_BLOCKS * sizeof(Block_ID));
         chunk->position = v3_s32(x, 0, z);
-        // chunk->opaque_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
-        // chunk->transparent_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
+        chunk->opaque_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
+        chunk->transparent_geo.reserve(CHUNK_BLOCKS * sizeof(u64));
         chunk->flags = CHUNK_FLAG_NIL;
         chunk->flags |= CHUNK_FLAG_DIRTY;
     }
@@ -213,7 +213,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_positi
 
     // load_chunk_at(manager, chunk_position.x,  0, chunk_position.z);
     // load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
-    V3_S32 dim = v3_s32(16, 0, 16);
+    V3_S32 dim = v3_s32(20, 0, 20);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -416,7 +416,7 @@ internal void load_blocks() {
 
     {
         Block *block = &blocks[BLOCK_GRASS];
-        set_block_face(block->faces + FACE_TOP, str8_lit("grass_block_top.png"), 5);
+        set_block_face(block->faces + FACE_TOP, str8_lit("grass_block_top.png"), 7);
         set_block_face(block->faces + FACE_BOTTOM, str8_lit("dirt.png"), 0);
         set_block_face(block->faces + FACE_NORTH, str8_lit("grass_block_side.png"), 0);
         block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_NORTH];
@@ -572,6 +572,10 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         Arena *font_arena = arena_alloc(get_virtual_allocator(), MB(4));
         default_fonts[FONT_DEFAULT] = load_font(font_arena, str8_lit("data/assets/fonts/consolas.ttf"), 20);
 
+        // u32 icon_font_glyphs[] = { 120, 33, 49, 71, 110, 85, 68, 76, 82, 57, 48, 55, 56, 43, 45, 123, 125, 70, 67, 35, 70, 72 };
+        u32 icon_font_glyphs[] = { 87, 120, 33, 49, 85, 68, 76, 82, 123, 125, 67, 70, 35 };
+        default_fonts[FONT_ICON] = load_icon_font(font_arena, str8_lit("data/assets/fonts/icons.ttf"), 18, icon_font_glyphs, ArrayCount(icon_font_glyphs));
+
         ui_set_state(ui_state_new());
 
         load_blocks();
@@ -632,14 +636,14 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         game_state->camera.yaw = -90.0f;
         game_state->camera.pitch =  0.0f;
         game_state->camera.fov = 70.f;
-        game_state->camera.aspect = 1024.0f/ 768.0f;
+        game_state->camera.aspect = 1.0f;
 
         game_state->frustum = make_frustum(game_state->camera, 0.1f, 1200.0f);
 
         game_state->ticks_per_second = 10;
         game_state->ticks_per_day = SECONDS_PER_DAY * game_state->ticks_per_second;
 
-        game_state->hour = 12;
+        game_state->hour = 0;
         game_state->day_t = (int)(game_state->hour * (game_state->ticks_per_day / 24.0f));
     }
 
@@ -825,7 +829,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
             if (chunk != player->chunk) {
                 DWORD thread_id;
                 CreateThread(NULL, 0, generate_chunk_thread, (void *)chunk, 0, &thread_id);
-                printf("GENERATING ON THREAD %d\n", thread_id);
+                // printf("GENERATING ON THREAD %d\n", thread_id);
             } else {
                 generate_chunk(chunk_manager, world_generator, chunk);
             }
@@ -835,10 +839,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     voxel_raycast(chunk_manager, game_state->camera.position, game_state->camera.forward, 20.0f, &player->raycast);
 
     if (key_pressed(OS_KEY_F1)) {
-        game_state->mesh_debug = !game_state->mesh_debug;
-    }
-    if (key_pressed(OS_KEY_F4)) {
-        game_state->creative_mode = !game_state->creative_mode;
+        game_state->debug_menu = !game_state->debug_menu;
     }
 
     if (key_up(OS_KEY_LEFTMOUSE)) {
@@ -923,7 +924,7 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
                 if (chunk != player->chunk) {
                     DWORD thread_id = 0;
                     CreateThread(NULL, 0, update_chunk_thread, (void *)chunk, 0, &thread_id);
-                    printf("BAKING MESH ON THREAD %d\n", thread_id);
+                    // printf("BAKING MESH ON THREAD %d\n", thread_id);
                 } else {
                     load_chunk_mesh(chunk);
                 }
@@ -938,7 +939,8 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     draw_begin(window_handle);
 
     //@Note Draw Sun Texture
-    R_Handle celestial_body = (game_state->hour >= 4  && game_state->hour <= 18) ? sun_tex : moon_tex;
+    // R_Handle celestial_body = (game_state->hour >= 4  && game_state->hour <= 18) ? sun_tex : moon_tex;
+    R_Handle celestial_body = sun_tex;
     draw_sun(projection, view, celestial_body);
     {
         V3_F32 position = V3_Zero;
@@ -1002,17 +1004,67 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
     // }
     // draw_rect_outline(hotbar_rect, make_v4_f32(1.f, 1.f, 1.f, 1.f));
 
-    //@DEBUG
-    ui_labelf("delta: %.4fms", 1000.0 * dt);
-    ui_labelf("world:%lld %lld %lld chunk:%d %d %d", (s64)player->position.x, (s64)player->position.y, (s64)player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
-    // ui_labelf("day: %d hour: %d", game_state->day_t, game_state->hour);
+    g_input.capture_cursor = !game_state->debug_menu;
 
-    // ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
+    if (game_state->debug_menu) {
+        ui_set_next_background_color(v4_f32(0.1f, 0.1f, 0.1f, 0.5f));
+        ui_set_next_pref_width(ui_px(600.0f, 1.0f));
+        ui_set_next_pref_height(ui_px(400.0f, 1.0f));
+        UI_Box *ui_container = ui_make_box_from_stringf(UI_BoxFlag_DrawBackground, "###debug_container");
+        UI_Parent(ui_container) {
 
-    {
-        if (player->raycast.block != block_id_zero()) {
-            Block_ID *block = get_block_from_position(chunk_manager, (s32)player->raycast.hit.x, (s32)player->raycast.hit.y, (s32)player->raycast.hit.z);
-            ui_labelf("raycast: %lld %lld %.2f block:%s face: %s", (s64)player->raycast.hit.x, (s64)player->raycast.hit.y, (s64)player->raycast.hit.z, block_to_string(*block), face_to_string(player->raycast.face));
+            //@Note Frame delta ring buffer
+            f32 max_dt = 75.0f;
+            Frame_Delta_Ring_Buffer *buffer = &g_frame_delta_ring_buffer;
+            int count = ArrayCount(game_state->delta_frames);
+            MemoryZero(game_state->delta_frames, sizeof(game_state->delta_frames));
+
+            // After                                          Before
+            //-----==========================================-----
+            if (buffer->index < count) {
+                //@Note Before the end of the ring
+                int start = 0;
+                if (buffer->count == MAX_FRAME_DELTA_BUFFER) {
+                    int before_count = count - buffer->index;
+                    int before_start = buffer->count - before_count;
+                    for (int i = 0; i < before_count; i++) {
+                        game_state->delta_frames[i] = buffer->data[before_start + i] / max_dt;
+                    }
+                    start += before_count;
+                } else {
+                    start += count - buffer->index;
+                }
+                //@Note After the end of the ring
+                for (int i = 0; i < buffer->index; i++) {
+                    game_state->delta_frames[start + i] = buffer->data[i] / max_dt;
+                }
+            } else {
+                int start = buffer->index - ArrayCount(game_state->delta_frames);
+                for (int i = 0; i < ArrayCount(game_state->delta_frames); i++) {
+                    game_state->delta_frames[i] = buffer->data[start+ i] / max_dt;
+                }
+            }
+
+            ui_set_next_background_color(v4_f32(0.0f, 0.0f, 0.0f, 0.0f));
+            ui_set_next_pref_width(ui_pct(1.0f, 1.0f));
+            ui_set_next_pref_height(ui_pct(0.5f, 0.0f));
+            ui_bar_graph(game_state->delta_frames, ArrayCount(game_state->delta_frames), v4_f32(1.0f, 1.0f, 0.0f, 1.0f), str8_lit("###dt_graph_bar"));
+
+            ui_labelf("delta: %.4fms", 1000.0 * dt);
+            ui_labelf("world:%lld %lld %lld chunk:%d %d %d", (s64)player->position.x, (s64)player->position.y, (s64)player->position.z, chunk_manager->chunk_position.x, chunk_manager->chunk_position.y, chunk_manager->chunk_position.z);
+
+            UI_TextColor(v4_f32(1.0f, 1.0f, 1.0f, 1.0f))
+                UI_BackgroundColor(v4_f32(0.1f, 0.1f, 0.1f, 1.0f)) {
+                ui_checkbox(&game_state->mesh_debug, str8_lit("Chunk Wireframe###checkbox_wireframe"));
+            }
+
+            if (player->raycast.block != block_id_zero()) {
+                Block_ID *block = get_block_from_position(chunk_manager, (s32)player->raycast.hit.x, (s32)player->raycast.hit.y, (s32)player->raycast.hit.z);
+                ui_labelf("raycast: %lld %lld %.2f block:%s face: %s", (s64)player->raycast.hit.x, (s64)player->raycast.hit.y, (s64)player->raycast.hit.z, block_to_string(*block), face_to_string(player->raycast.face));
+            }
+
+            // ui_labelf("day: %d hour: %d", game_state->day_t, game_state->hour);
+            // ui_labelf("forward:%.2f %.2f %.2f", game_state->camera.forward.x, game_state->camera.forward.y, game_state->camera.forward.z);
         }
     }
 

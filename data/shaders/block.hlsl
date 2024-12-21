@@ -84,12 +84,12 @@ Vertex_Output vs_main(Vertex_Input input) {
 
     uint face = get_face_orientation(input.data.x);
     uint uv_index = input.data.y & 0xFF;
+    float4 base_color = get_color(get_color_id(input.data.y));
 
     // float4 ambience = float4(0.1f, 0.1f, 0.1f, 0.75f);
-    uint light_level = get_light_level(input.data.y);
-    float light = (light_level + 1) / 16.0f;
-    float4 light_color = float4(light, light, light, 1.0);
-    float4 base_color = get_color(get_color_id(input.data.y));
+    // uint light_level = get_light_level(input.data.y);
+    // float light = (light_level + 1) / 16.0f;
+    // float4 light_color = float4(light, light, light, 1.0);
 
     float4x4 chunk_trans = {
         1, 0, 0, world_position.x - world_position_offset.x,
