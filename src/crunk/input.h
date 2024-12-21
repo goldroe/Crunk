@@ -20,6 +20,8 @@ struct Input {
     V2_S32 scroll_delta;
 
     V2_S32 client_dim;
+
+    b32 capture_cursor;
 };
 
 internal void input_begin(OS_Handle window_handle, OS_Event *events);

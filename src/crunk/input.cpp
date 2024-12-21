@@ -10,16 +10,18 @@ internal bool key_pressed(OS_Key key) { bool result = button_pressed(key); retur
 internal bool key_down(OS_Key key)    { bool result = button_down(key); return result; }
 
 internal inline V2_F32 get_mouse_drag_delta() {
-    V2_F32 result;
+    V2_F32 result = {};
     result.x = (f32)(g_input.mouse_position.x - g_input.mouse_drag_start.x);
     result.y = (f32)(g_input.mouse_position.y - g_input.mouse_drag_start.y);
     return result;
 }
 
 internal inline V2_F32 get_mouse_delta() {
-    V2_F32 result; 
-    result.x = (f32)(g_input.mouse_position.x - g_input.last_mouse_position.x);
-    result.y = (f32)(g_input.mouse_position.y - g_input.last_mouse_position.y);
+    V2_F32 result = {};
+    if (g_input.capture_cursor) {
+        result.x = (f32)(g_input.mouse_position.x - g_input.last_mouse_position.x);
+        result.y = (f32)(g_input.mouse_position.y - g_input.last_mouse_position.y);
+    }
     return result;
 }
 
@@ -77,8 +79,8 @@ internal void input_end(OS_Handle window_handle) {
         g_input.buttons[i] &= ~ButtonState_Pressed;
     }
 
-    //@Note Input: Capture cursor
-    if (os_window_is_focused(window_handle)) {
+    if (os_window_is_focused(window_handle) && g_input.capture_cursor) {
+        os_set_cursor(OS_Cursor_Hidden);
         V2_S32 center = v2_s32(client_dim.x / 2, client_dim.y / 2);
         g_input.mouse_position.x = g_input.last_mouse_position.x = center.x;
         g_input.mouse_position.y = g_input.last_mouse_position.y = center.y;
@@ -89,6 +91,8 @@ internal void input_end(OS_Handle window_handle) {
         // https://github.com/libsdl-org/SDL/blob/38e3c6a4aa338d062ca2eba80728bfdf319f7104/src/video/windows/SDL_windowsmouse.c#L319
         // SetCursorPos(pt.x + 1, pt.y);
         // SetCursorPos(pt.x, pt.y);
+    } else {
+        g_input.last_mouse_position.x = g_input.mouse_position.x;
+        g_input.last_mouse_position.y = g_input.mouse_position.y;
     }
-
 }
