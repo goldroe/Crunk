@@ -26,6 +26,57 @@ internal UI_Signal ui_buttonf(const char *fmt, ...) {
     return ui_button(string);
 }
 
+internal UI_Signal ui_checkbox(b32 *value, String8 string) {
+    UI_Box *check_box = NULL;
+    ui_set_next_child_layout_axis(Axis_X);
+    ui_set_next_pref_width(ui_children_sum(1.0f));
+    ui_set_next_pref_height(ui_children_sum(1.0f));
+    UI_Box *container = ui_make_box_from_string(UI_BoxFlag_Nil, string);
+    UI_Parent(container) {
+        ui_set_next_font(default_fonts[FONT_ICON]);
+        UI_Icon_Kind icon = *value ? UI_IconKind_Check : UI_IconKind_CheckEmpty;
+        String8 icon_string = ui_string_from_icon_kind(icon, "###_checkbox");
+        ui_set_next_pref_width(ui_text_dim(4.0f, 1.0f));
+        ui_set_next_pref_height(ui_text_dim(2.0f, 1.0f));
+        check_box = ui_make_box_from_string(UI_BoxFlag_DrawText|UI_BoxFlag_DrawBackground|UI_BoxFlag_Clickable, icon_string);
+        ui_label(string);
+    }
+    UI_Signal sig = ui_signal_from_box(check_box);
+    if (sig.flags & UI_SignalFlag_Clicked) {
+        *value = !*value;
+    }
+
+    return sig;
+}
+
+struct UI_Graph_Draw_Data {
+    f32 *values;
+    int values_count;
+    V4_F32 color;
+};
+
+internal UI_BOX_CUSTOM_DRAW_PROC(ui_draw_graph) {
+    UI_Graph_Draw_Data *draw_data = (UI_Graph_Draw_Data *)user_data;
+    V2_F32 box_dim = rect_dim(box->rect);
+    f32 line_width = floor_f32((box_dim.x / (f32)draw_data->values_count));
+    f32 line_height = box_dim.y;
+    V2_F32 start = v2_f32(box->rect.x0, box->rect.y1);
+    draw_ui_graph(draw_data->values, draw_data->values_count, line_width, line_height, start, draw_data->color);
+}
+
+internal UI_Signal ui_bar_graph(f32 *values, int values_count, V4_F32 line_color, String8 string) {
+    UI_Box *box = ui_make_box_from_string(UI_BoxFlag_DrawBackground, string);
+
+    UI_Graph_Draw_Data *draw_data = push_array(ui_build_arena(), UI_Graph_Draw_Data, 1);
+    draw_data->values = values;
+    draw_data->values_count = values_count;
+    draw_data->color = line_color;
+    ui_set_custom_draw(box, ui_draw_graph, draw_data);
+
+    UI_Signal signal = ui_signal_from_box(box);
+    return signal;
+}
+
 struct UI_Image_Draw_Data {
     R_Handle tex;
     Rect src;
