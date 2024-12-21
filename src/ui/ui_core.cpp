@@ -1,6 +1,6 @@
 global UI_State *ui_state;
 
-global char *ui_g_icon_kind_strings[UI_IconKind_COUNT] = {
+global char *ui_g_icon_kind_strings[] = {
     "A",
     "B",
     "C",
@@ -13,6 +13,20 @@ global char *ui_g_icon_kind_strings[UI_IconKind_COUNT] = {
     "J",
     "K",
     "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z"
 };
 internal String8 ui_string_from_icon_kind(UI_Icon_Kind kind, const char *end) {
     char *icon_string = ui_g_icon_kind_strings[kind];

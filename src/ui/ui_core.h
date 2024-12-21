@@ -263,17 +263,18 @@ struct UI_Txt_Buffer {
 };
 
 enum UI_Icon_Kind {
-    UI_IconKind_Folder,
-    UI_IconKind_File,
-    UI_IconKind_Image,
-    UI_IconKind_Images,
+    UI_IconKind_Warning,
+    UI_IconKind_Cancel,
+    UI_IconKind_CheckEmpty,
+    UI_IconKind_Check,
     UI_IconKind_ArrowUp,
     UI_IconKind_ArrowDown,
     UI_IconKind_ArrowLeft,
     UI_IconKind_ArrowRight,
-    UI_IconKind_WindowClose,
     UI_IconKind_ZoomPlus,
     UI_IconKind_ZoomMinus,
+    UI_IconKind_Folder,
+    UI_IconKind_Document,
     UI_IconKind_Trash,
     UI_IconKind_COUNT
 };
