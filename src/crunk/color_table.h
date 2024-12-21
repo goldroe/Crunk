@@ -9,6 +9,7 @@ global RGBA g_block_color_table[] = {
     0x0000FFFF,
     0x55FF55FF,
     0x5555FFFF,
+    0x7cbd6bFF,
 };
 
 #endif // COLOR_TABLE_H
