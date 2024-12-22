@@ -41,4 +41,10 @@ struct Texture_Atlas {
     Texture_Region_Bucket *region_hash_table;
 };
 
+struct Texture_Cube {
+    R_Handle tex_handle;
+    V2_S32 dim;
+    u8 *data[6];
+};
+
 #endif // ATLAS_H
