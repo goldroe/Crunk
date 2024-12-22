@@ -9,6 +9,53 @@ global R_Handle sun_tex;
 global R_Handle mining_textures[10];
 global R_Handle moon_tex;
 
+f32 skybox_vertices[] = {
+    // positions          
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+    1.0f,  1.0f, -1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    1.0f, -1.0f,  1.0f
+};
+ID3D11Buffer *skybox_buffer;
+Texture_Cube skybox_texture;
+
 internal Ray make_ray(V3_F64 origin, V3_F32 direction) {
     Ray result;
     result.origin = origin;
@@ -213,7 +260,7 @@ internal void update_chunk_load_list(Chunk_Manager *manager, V3_S32 chunk_positi
 
     // load_chunk_at(manager, chunk_position.x,  0, chunk_position.z);
     // load_new_chunk_at(manager, chunk_position.x, 0, chunk_position.z);
-    V3_S32 dim = v3_s32(20, 0, 20);
+    V3_S32 dim = v3_s32(16, 0, 16);
     s32 min_x = chunk_position.x - (s32)(0.5f * dim.x);
     s32 max_x = chunk_position.x + (s32)(0.5f * dim.x);
     s32 min_z = chunk_position.z - (s32)(0.5f * dim.z);
@@ -281,6 +328,18 @@ internal void set_block_face_all(Block *block, String8 texture_name, u8 color_id
     block->faces[FACE_TOP].texture_region = region;
     block->faces[FACE_TOP].color_id = color_id;
     block->faces[FACE_BOTTOM] = block->faces[FACE_NORTH] = block->faces[FACE_SOUTH] = block->faces[FACE_EAST] = block->faces[FACE_WEST] = block->faces[FACE_TOP];
+}
+
+internal Texture_Cube make_texture_cube(char *faces[6]) {
+    Texture_Cube texture_cube = {};
+    int x, y, n;
+    for (int i = 0; i < 6; i++) {
+        u8 *data = stbi_load(faces[i], &x, &y, &n, 4);
+        texture_cube.data[i] = data;
+    }
+    texture_cube.dim = v2_s32(x, y);
+    texture_cube.tex_handle = d3d11_create_texture_cube(texture_cube);
+    return texture_cube;
 }
 
 internal void load_blocks() {
@@ -594,6 +653,18 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
         mining_textures[7] = load_texture(str8_lit("data/assets/misc/destroy_stage_7.png"));
         mining_textures[8] = load_texture(str8_lit("data/assets/misc/destroy_stage_8.png"));
         mining_textures[9] = load_texture(str8_lit("data/assets/misc/destroy_stage_9.png"));
+
+
+        char *cube_faces[6] = {
+            "data/assets/clouds1/clouds1_east.bmp",
+            "data/assets/clouds1/clouds1_west.bmp",
+            "data/assets/clouds1/clouds1_up.bmp",
+            "data/assets/clouds1/clouds1_down.bmp",
+            "data/assets/clouds1/clouds1_north.bmp",
+            "data/assets/clouds1/clouds1_south.bmp",
+        };
+        skybox_texture = make_texture_cube(cube_faces);
+        skybox_buffer = d3d11_make_vertex_buffer(skybox_vertices, sizeof(skybox_vertices));
 
         //@Note World Generator
         {
@@ -1082,7 +1153,40 @@ internal void update_and_render(OS_Event_List *event_list, OS_Handle window_hand
 
     draw_ui_layout(ui_root());
 
+
     d3d11_render(window_handle, draw_bucket);
+
+    //@Note Render skymap
+    {
+        r_d3d11_state->device_context->RSSetState(r_d3d11_state->rasterizer_states[R_RasterizerState_Text]);
+        r_d3d11_state->device_context->OMSetDepthStencilState(r_d3d11_state->depth_stencil_states[R_DepthState_Wireframe], 0);
+        r_d3d11_state->device_context->OMSetBlendState(NULL, NULL, 0xffffffff);
+        r_d3d11_state->device_context->PSSetSamplers(0, 1, &r_d3d11_state->samplers[R_SamplerKind_Linear]);
+
+        R_D3D11_Tex2D *tex2d = (R_D3D11_Tex2D *)skybox_texture.tex_handle;
+        r_d3d11_state->device_context->PSSetShaderResources(0, 1, &tex2d->view);
+
+        ID3D11VertexShader *vertex_shader = r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Skybox];
+        ID3D11PixelShader *pixel_shader = r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Skybox];
+        r_d3d11_state->device_context->VSSetShader(vertex_shader, NULL, 0);
+        r_d3d11_state->device_context->PSSetShader(pixel_shader, NULL, 0);
+
+        D3D11_Uniform_Skybox skybox_uniform = {};
+        M4_F32 skybox_view = view;
+        skybox_view.columns[3] = v4_f32(0, 0, 0, 0);
+        skybox_uniform.xform = projection * skybox_view;
+        ID3D11Buffer *uniform_buffer = r_d3d11_state->uniform_buffers[D3D11_ShaderKind_Skybox];
+        d3d11_upload_uniform(uniform_buffer, (void *)&skybox_uniform, sizeof(D3D11_Uniform_Skybox));
+        r_d3d11_state->device_context->VSSetConstantBuffers(0, 1, &uniform_buffer);
+        
+        r_d3d11_state->device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        r_d3d11_state->device_context->IASetInputLayout(r_d3d11_state->input_layouts[D3D11_ShaderKind_Skybox]);
+        UINT stride = 3 * sizeof(f32);
+        UINT offset = 0;
+        r_d3d11_state->device_context->IASetVertexBuffers(0, 1, &skybox_buffer, &stride, &offset);
+
+        r_d3d11_state->device_context->Draw(36, 0);
+    }
 
     r_d3d11_state->swap_chain->Present(1, 0);
 
