@@ -344,6 +344,63 @@ internal u32 r_format_size(R_Tex2D_Format format) {
     return result;
 }
 
+internal R_Handle d3d11_create_texture_cube(Texture_Cube texture_cube) {
+    R_Handle result = 0;
+
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = texture_cube.dim.x;
+    desc.Height = texture_cube.dim.y;
+    desc.MipLevels = 1;
+    desc.ArraySize = 6;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+    D3D11_SUBRESOURCE_DATA data[6] = {};
+    for (int i = 0; i < 6; i++) {
+        data[i].pSysMem = texture_cube.data[i];
+        data[i].SysMemPitch = texture_cube.dim.x * 4;
+        data[i].SysMemSlicePitch = 0;
+    }
+
+    ID3D11Texture2D *tex2d = NULL;
+    ID3D11ShaderResourceView *view = NULL;
+    HRESULT hr = r_d3d11_state->device->CreateTexture2D(&desc, data, &tex2d);
+    if (FAILED(hr)) {
+        printf("Failed to create shader resource view\n");
+        return result;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.Format = desc.Format;
+    srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+    srv_desc.Texture2D.MostDetailedMip = 0;
+    srv_desc.Texture2D.MipLevels = 1;
+    hr = r_d3d11_state->device->CreateShaderResourceView(tex2d, &srv_desc, &view);
+    if (FAILED(hr)) {
+        printf("Failed to create texture2d\n");
+        return result; 
+    }
+
+    R_D3D11_Tex2D *texture = r_d3d11_state->first_free_tex2d;
+    if (texture == NULL) {
+        texture = push_array(r_d3d11_state->arena, R_D3D11_Tex2D, 1);
+    } else {
+        SLLStackPop(r_d3d11_state->first_free_tex2d);
+    }
+
+    texture->texture = tex2d;
+    texture->view = view;
+    texture->size = texture_cube.dim;
+    texture->size.x *= 6;
+    result = (R_Handle)texture;
+    return result;
+}
+
 internal R_Handle d3d11_create_texture_mipmap(R_Tex2D_Format format, V2_S32 size, u8 *data) {
     HRESULT hr = S_OK;
     D3D11_TEXTURE2D_DESC desc = {};
@@ -367,7 +424,7 @@ internal R_Handle d3d11_create_texture_mipmap(R_Tex2D_Format format, V2_S32 size
 	srv_desc.Format = desc.Format;
 	srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MostDetailedMip = 0;
-	srv_desc.Texture2D.MipLevels = 3;
+	srv_desc.Texture2D.MipLevels = 4;
     hr = r_d3d11_state->device->CreateShaderResourceView(texture, &srv_desc, &view);
 
     r_d3d11_state->device_context->GenerateMips(view);
@@ -713,7 +770,8 @@ internal void d3d11_render(OS_Handle window_handle, Draw_Bucket *draw_bucket) {
             r_d3d11_state->device_context->OMSetBlendState(NULL, NULL, 0xffffffff);
 
             //@Note Render Opaque Blocks
-            for (int i = (int)sorted_chunks.count - 1; i >= 0; i--) {
+            // for (int i = (int)sorted_chunks.count - 1; i >= 0; i--) {
+            for (int i = 0; i < sorted_chunks.count; i++) {
                 Chunk *chunk = sorted_chunks[i];
                 if (chunk_is_dirty(chunk)) continue;
                 
@@ -1180,6 +1238,12 @@ internal void d3d11_render_initialize(HWND window_handle) {
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_Blocks] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Blocks));
     r_d3d11_state->uniform_buffers[D3D11_UniformKind_BlocksPerChunk] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_BlocksPerChunk));
 
+    D3D11_INPUT_ELEMENT_DESC skybox_ilay[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,  0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 }
+    };
+    d3d11_make_shader_from_file(str8_lit("data/shaders/skybox.hlsl"), "vs_main", "ps_main", skybox_ilay, ArrayCount(skybox_ilay), &r_d3d11_state->vertex_shaders[D3D11_ShaderKind_Skybox], &r_d3d11_state->pixel_shaders[D3D11_ShaderKind_Skybox], &r_d3d11_state->input_layouts[D3D11_ShaderKind_Skybox]);
+    r_d3d11_state->uniform_buffers[D3D11_UniformKind_Skybox] = d3d11_make_uniform_buffer(sizeof(D3D11_Uniform_Skybox));
+    
     D3D11_INPUT_ELEMENT_DESC sun_ilay[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(R_3D_Vertex, pos),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(R_3D_Vertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },

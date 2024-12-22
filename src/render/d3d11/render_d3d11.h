@@ -18,6 +18,7 @@ enum D3D11_Shader_Kind {
     D3D11_ShaderKind_Mesh,
     D3D11_ShaderKind_Blocks,
     D3D11_ShaderKind_Sun,
+    D3D11_ShaderKind_Skybox,
     D3D11_ShaderKind_COUNT
 };
 
@@ -28,6 +29,7 @@ enum D3D11_Uniform_Kind {
     D3D11_UniformKind_Blocks,
     D3D11_UniformKind_BlocksPerChunk,
     D3D11_UniformKind_Sun,
+    D3D11_UniformKind_Skybox,
     D3D11_UniformKind_COUNT
 };
 
@@ -54,6 +56,10 @@ struct D3D11_Uniform_BlocksPerChunk {
 };
 
 struct D3D11_Uniform_Sun {
+    M4_F32 xform;
+};
+
+struct D3D11_Uniform_Skybox {
     M4_F32 xform;
 };
 
